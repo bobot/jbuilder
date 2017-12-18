@@ -56,9 +56,11 @@ let copy_channels =
   in
   loop
 
-let copy_file ~src ~dst =
+let copy_file ?perm ~src ~dst () =
   with_file_in src ~f:(fun ic ->
-    let perm = (Unix.fstat (Unix.descr_of_in_channel ic)).st_perm in
+    let perm = match perm with
+      | None -> (Unix.fstat (Unix.descr_of_in_channel ic)).st_perm
+      | Some i -> i in
     protectx (P.open_out_gen
                 [Open_wronly; Open_creat; Open_trunc; Open_binary]
                 perm

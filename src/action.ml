@@ -569,11 +569,11 @@ let rec exec t ~ectx ~dir ~env_extra ~stdout_to ~stderr_to =
       Io.copy_channels ic oc);
     return ()
   | Copy (src, dst) ->
-    Io.copy_file ~src:(Path.to_string src) ~dst:(Path.to_string dst);
+    Io.copy_file ~src:(Path.to_string src) ~dst:(Path.to_string dst) ();
     return ()
   | Symlink (src, dst) ->
     if Sys.win32 then
-      Io.copy_file ~src:(Path.to_string src) ~dst:(Path.to_string dst)
+      Io.copy_file ~src:(Path.to_string src) ~dst:(Path.to_string dst) ()
     else begin
       let src =
         if Path.is_root dst then

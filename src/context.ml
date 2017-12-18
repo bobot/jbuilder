@@ -435,21 +435,24 @@ let create_for_opam ?root ~switch ~name ?(merlin=false) () =
 
 let which t s = which ~cache:t.which_cache ~path:t.path s
 
-let install_prefix t =
+let default_install_prefix t =
   opam_config_var t "prefix" >>| function
   | Some x -> Path.absolute x
   | None   -> Path.parent t.ocaml_bin
 
-let install_ocaml_libdir t =
+let default_install_ocaml_libdir t =
   (* If ocamlfind is present, it has precedence over everything else. *)
   match which t "ocamlfind" with
   | Some fn ->
     (Future.run_capture_line ~env:t.env Strict
        (Path.to_string fn) ["printconf"; "destdir"]
      >>| fun s ->
-     Some (Path.absolute s))
+     Path.absolute s)
   | None ->
-    return None
+    (** otherwise use $prefix/lib *)
+    default_install_prefix t
+    >>| fun prefix ->
+    Path.relative prefix "lib"
 
 (* CR-someday jdimino: maybe we should just do this for [t.env] directly? *)
 let env_for_exec t =

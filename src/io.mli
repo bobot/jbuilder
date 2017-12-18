@@ -18,4 +18,4 @@ val write_file : string -> string -> unit
 
 val copy_channels : in_channel -> out_channel -> unit
 
-val copy_file : src:string -> dst:string -> unit
+val copy_file : ?perm:int -> src:string -> dst:string -> unit -> unit

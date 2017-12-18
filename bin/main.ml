@@ -722,8 +722,16 @@ let install_uninstall ~what =
   let doc =
     sprintf "%s packages using opam-installer." (String.capitalize_ascii what)
   in
+  let man =
+    `S "DEFAULT INSTALL DIRECTORY"
+    :: `P "The default install directory depends in which context jbuilder is run: \
+           with or without an ocamlfind, with or without a configured opam. If ocamlfind is available its destdir
+ is used for libdir"
+    :: help_secs in
   let name_ = Arg.info [] ~docv:"PACKAGE" in
-  let go common prefix_from_command_line libdir_from_command_line pkgs =
+  let go common prefix_from_command_line libdir_from_command_line destdir_from_command_line
+        sbindir libexecdir sysconfdir datarootdir mandir docdir
+        pkgs =
     set_common common ~targets:[];
     let opam_installer = opam_installer () in
     let log = Log.create () in
@@ -786,7 +794,7 @@ let install_uninstall ~what =
           $ common
           $ Arg.(value
                  & opt (some dir) None
-                 & info ["destdir"; "prefix"]
+                 & info ["prefix"]
                      ~docv:"PREFIX"
                      ~doc:"Directory where files are copied. For instance binaries \
                            are copied into $(i,\\$prefix/bin), library files into \
@@ -802,8 +810,67 @@ let install_uninstall ~what =
                            is specified the default is $(i,\\$prefix/lib), otherwise \
                            it is the output of $(b,ocamlfind printconf destdir)"
                 )
+          $ Arg.(value
+                 & opt (some dir) (Sys.getenv_opt "DESTDIR")
+                 & info ["destdir"]
+                     ~docv:"DESTDIR"
+                     ~doc:"Directory appended to all the destination path. \
+                           Could be used to simulate the installation in a \
+                           temporary directory and without needing specific \
+                           write right. The default value is empty but could \
+                           be changed using the environment variable DESTDIR")
+          $ Arg.(value
+                 & opt (some dir) None
+                 & info ["bindir"]
+                     ~docv:"DIR"
+                     ~doc:"user executables (default to \\$prefix/bin)")
+          $ Arg.(value
+                 & opt (some dir) None
+                 & info ["sbindir"]
+                     ~docv:"DIR"
+                     ~doc:"system admin executables (default to \\$prefix/bin)")
+          $ Arg.(value
+                 & opt (some dir) None
+                 & info ["libexecdir"]
+                     ~docv:"DIR"
+                     ~doc:"program executables (default to \\$prefix/libexec)")
+          $ Arg.(value
+                 & opt (some dir) None
+                 & info ["sysconfdir"]
+                     ~docv:"DIR"
+                     ~doc:"read-only single-machine data (default to \\$prefix/etc)")
+          $ Arg.(value
+                 & opt (some dir) None
+                 & info ["datarootdir"]
+                     ~docv:"DIR"
+                     ~doc:"read-only arch.-independent data root (default to \\$prefix/share)")
+          $ Arg.(value
+                 & opt (some dir) None
+                 & info ["mandir"]
+                     ~docv:"DIR"
+                     ~doc:"man documentation (default to \\$prefix/share/man)")
+          $ Arg.(value
+                 & opt (some dir) None
+                 & info ["docdir"]
+                     ~docv:"DIR"
+                     (** autoconf use the default : DATAROOTDIR/doc/PACKAGE *)
+                     ~doc:"documentation root (default to \\$prefix/share/doc)")
+           (*
+             The following options have not been taken from autoconf generated configure
+             --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
+             --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+             --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
+             --includedir=DIR        C header files [PREFIX/include]
+             --oldincludedir=DIR     C header files for non-gcc [/usr/include]
+             --infodir=DIR           info documentation [DATAROOTDIR/info]
+             --localedir=DIR         locale-dependent data [DATAROOTDIR/locale]
+             --htmldir=DIR           html documentation [DOCDIR]
+             --dvidir=DIR            dvi documentation [DOCDIR]
+             --pdfdir=DIR            pdf documentation [DOCDIR]
+             --psdir=DIR             ps documentation [DOCDIR]
+          *)
           $ Arg.(value & pos_all string [] name_))
-  , Term.info what ~doc ~man:help_secs)
+  , Term.info what ~doc ~man)
 
 let install   = install_uninstall ~what:"install"
 let uninstall = install_uninstall ~what:"uninstall"

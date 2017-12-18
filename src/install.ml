@@ -47,6 +47,22 @@ module Section = struct
       ; "man"        , Man
       ; "misc"       , Misc
       ]
+
+  (** Installed files must be set executable *)
+  let exec = function
+    | Bin
+    | Sbin
+    | Libexec
+    | Stublibs -> true
+    | Lib
+    | Toplevel
+    | Share
+    | Share_root
+    | Etc
+    | Doc
+    | Man
+    | Misc -> false
+
 end
 
 module Entry = struct
@@ -82,34 +98,63 @@ module Entry = struct
 
   let set_src t src = { t with src }
 
-  module Paths = struct
-    let lib         = Path.(relative root) "lib"
-    let libexec     = Path.(relative root) "lib"
-    let bin         = Path.(relative root) "bin"
-    let sbin        = Path.(relative root) "sbin"
-    let toplevel    = Path.(relative root) "lib/toplevel"
-    let share       = Path.(relative root) "share"
-    let share_root  = Path.(relative root) "share_root"
-    let etc         = Path.(relative root) "etc"
-    let doc         = Path.(relative root) "doc"
-    let stublibs    = Path.(relative root) "lib/stublibs"
-    let man         = Path.(relative root) "man"
-  end
+  type layout = {
+    (** ocaml lib *)
+    lib         : Path.t;
+    libexec     : Path.t;
+    bin         : Path.t;
+    sbin        : Path.t;
+    toplevel    : Path.t;
+    share       : Path.t;
+    share_root  : Path.t;
+    etc         : Path.t;
+    doc         : Path.t;
+    stublibs    : Path.t;
+    man         : Path.t;
+  }
 
-  let relative_installed_path t ~package =
+  let local_layout ~prefix ~libdir = {
+    lib         = Path.relative prefix "lib";
+    libexec     = Path.relative prefix "lib";
+    bin         = Path.relative prefix "bin";
+    sbin        = Path.relative prefix "sbin";
+    toplevel    = Path.relative prefix "lib/toplevel";
+    share       = Path.relative prefix "share";
+    share_root  = Path.relative prefix "share_root";
+    etc         = Path.relative prefix "etc";
+    doc         = Path.relative prefix "doc";
+    stublibs    = Path.relative prefix "lib/stublibs";
+    man         = Path.relative prefix "man";
+  }
+
+  let layout ~libdir ~prefix = {
+    lib         = libdir;
+    libexec     = libdir;
+    bin         = Path.relative prefix "bin";
+    sbin        = Path.relative prefix "sbin";
+    toplevel    = Path.relative libdir "toplevel";
+    share       = Path.relative prefix "share";
+    share_root  = Path.relative prefix "share_root";
+    etc         = Path.relative prefix "etc";
+    doc         = Path.relative prefix "doc";
+    stublibs    = Path.relative libdir "stublibs";
+    man         = Path.relative prefix "man";
+  }
+
+  let relative_installed_path ~layout t ~package =
     let main_dir =
       match t.section with
-      | Bin        -> Paths.bin
-      | Sbin       -> Paths.sbin
-      | Toplevel   -> Paths.toplevel
-      | Share_root -> Paths.share_root
-      | Stublibs   -> Paths.stublibs
-      | Man        -> Paths.man
-      | Lib        -> Path.relative Paths.lib     package
-      | Libexec    -> Path.relative Paths.libexec package
-      | Share      -> Path.relative Paths.share   package
-      | Etc        -> Path.relative Paths.etc     package
-      | Doc        -> Path.relative Paths.doc     package
+      | Bin        -> layout.bin
+      | Sbin       -> layout.sbin
+      | Toplevel   -> layout.toplevel
+      | Share_root -> layout.share_root
+      | Stublibs   -> layout.stublibs
+      | Man        -> layout.man
+      | Lib        -> Path.relative layout.lib     package
+      | Libexec    -> Path.relative layout.libexec package
+      | Share      -> Path.relative layout.share   package
+      | Etc        -> Path.relative layout.etc     package
+      | Doc        -> Path.relative layout.doc     package
       | Misc       -> invalid_arg "Install.Entry.relative_installed_path"
     in
     let dst =
@@ -126,6 +171,22 @@ module Entry = struct
         | _ -> dst
     in
     Path.relative main_dir dst
+
+  let path_opam prefix pkg = function
+    | Bin      -> Path.relative prefix "bin"
+    | Sbin     -> Path.relative prefix "sbin"
+    | Etc      -> Path.relative prefix "etc"
+    | Stublibs -> Path.relative prefix "lib/stublibs"
+    | Toplevel -> Path.relative prefix "lib/toplevel"
+    | Libexec
+    | Lib      -> Path.relative (Path.relative prefix "lib") pkg
+    | Share    -> Path.relative (Path.relative prefix "share") pkg
+    | Share_root -> Path.relative prefix "share"
+    | Doc      -> Path.relative (Path.relative prefix "doc") pkg
+    | Man      -> Path.relative prefix "man"
+    | Misc     -> assert false (** TODO : ask  the user *)
+
+
 end
 
 module SMap = Map.Make(Section)
@@ -151,3 +212,6 @@ let gen_install_file entries =
         | Some dst -> pr "  %S {%S}" src dst);
     pr "]");
   Buffer.contents buf
+
+let install entry =
+  Path.mkdir_p

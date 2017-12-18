@@ -36,6 +36,7 @@ module External = struct
 *)
 
   let relative = Filename.concat
+
 end
 
 let is_root = function
@@ -426,3 +427,17 @@ let change_extension ~ext t =
   t ^ ext
 
 let pp = Format.pp_print_string
+
+let rec mkdir_p = function
+  | "" -> ()
+  | t ->
+    try
+      Unix.mkdir t 0o777
+    with
+    | Unix.Unix_error (EEXIST, _, _) -> ()
+    | Unix.Unix_error (ENOENT, _, _) as e ->
+      match parent t with
+      | "" -> raise e
+      | p ->
+        mkdir_p p;
+        Unix.mkdir t 0o777

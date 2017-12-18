@@ -626,7 +626,7 @@ module Install_conf = struct
     record
       (field   "section" Install.Section.t >>= fun section ->
        field   "files"   (list file)       >>= fun files ->
-       Scope.package_field pkgs             >>= fun package ->
+       Scope.package_field pkgs            >>= fun package ->
        return
          { section
          ; files
