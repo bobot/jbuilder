@@ -168,13 +168,13 @@ let build_modules_map (d : _ Dir_with_dune.t) ~modules =
             ~virtual_modules:lib.virtual_modules
             ~private_modules:(
               Option.value ~default:Ordered_set_lang.standard
-                lib.private_modules)
+                lib.interface.private_modules)
         in
         let main_module_name =
           match Library.main_module_name lib with
           | This mmn -> mmn
           | Inherited_from _ ->
-            let name = (fst lib.name, Library.best_name lib) in
+            let name = (fst lib.interface.name, Library.best_name lib) in
             Lib.DB.resolve (Scope.libs scope) name
             |> Result.bind ~f:Lib.main_module_name
             |> Result.ok_exn

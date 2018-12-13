@@ -418,7 +418,7 @@ module Gen (P : Install_rules.Params) = struct
 
   let library_rules (lib : Library.t) ~dir_contents ~dir ~expander ~scope
         ~compile_info ~dir_kind =
-    let obj_dir = Utils.library_object_directory ~dir (snd lib.name) in
+    let obj_dir = Utils.library_object_directory ~dir (snd lib.interface.name) in
     let byte_dir = Utils.library_byte_dir ~obj_dir in
     let requires = Lib.Compile.requires compile_info in
     let dep_kind =
@@ -442,7 +442,7 @@ module Gen (P : Install_rules.Params) = struct
         ~preprocessor_deps:
           (SC.Deps.interpret sctx ~expander lib.buildable.preprocessor_deps)
         ~lint:lib.buildable.lint
-        ~lib_name:(Some (snd lib.name))
+        ~lib_name:(Some (snd lib.interface.name))
         ~dir_kind
     in
 
@@ -544,7 +544,7 @@ module Gen (P : Install_rules.Params) = struct
        ~requires:(Lib.Compile.requires compile_info)
        ~flags
        ~preprocess:(Buildable.single_preprocess lib.buildable)
-       ~libname:(snd lib.name)
+       ~libname:(snd lib.interface.name)
        ~objs_dirs
     )
 

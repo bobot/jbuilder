@@ -166,7 +166,7 @@ include Sub_system.Register_end_point(
 
       let inline_test_dir =
         Path.relative dir (sprintf ".%s.inline-tests"
-                             (Lib_name.Local.to_string (snd lib.name)))
+                             (Lib_name.Local.to_string (snd lib.interface.name)))
       in
 
       let name = "run" in
@@ -184,7 +184,7 @@ include Sub_system.Register_end_point(
 
       let bindings =
         Pform.Map.singleton "library-name"
-          (Values [String (Lib_name.Local.to_string (snd lib.name))])
+          (Values [String (Lib_name.Local.to_string (snd lib.interface.name))])
       in
 
       let expander = Super_context.expander sctx ~dir in

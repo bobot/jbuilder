@@ -958,16 +958,16 @@ module DB = struct
       List.concat_map stanzas ~f:(fun (dir, (conf : Dune_file.Library.t)) ->
         let info =
           Lib_info.of_library_stanza ~dir ~has_native ~ext_lib ~ext_obj conf in
-        match conf.public with
+        match conf.interface.public with
         | None ->
           [Dune_file.Library.best_name conf, Resolve_result.Found info]
         | Some p ->
           let name = Dune_file.Public_lib.name p in
-          if name = Lib_name.of_local conf.name then
+          if name = Lib_name.of_local conf.interface.name then
             [name, Found info]
           else
             [ name                       , Found info
-            ; Lib_name.of_local conf.name, Redirect (None, name)
+            ; Lib_name.of_local conf.interface.name, Redirect (None, name)
             ])
       |> Lib_name.Map.of_list
       |> function
@@ -975,8 +975,8 @@ module DB = struct
       | Error (name, _, _) ->
         match
           List.filter_map stanzas ~f:(fun (_, (conf : Dune_file.Library.t)) ->
-            if name = Lib_name.of_local conf.name ||
-               match conf.public with
+            if name = Lib_name.of_local conf.interface.name ||
+               match conf.interface.public with
                | None -> false
                | Some p -> name = Dune_file.Public_lib.name p
             then Some conf.buildable.loc

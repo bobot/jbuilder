@@ -191,10 +191,18 @@ module Library : sig
       }
   end
 
+
+  module Interface : sig
+    type t =
+      { name                     : (Loc.t * Lib_name.Local.t)
+      ; public                   : Public_lib.t option
+      ; private_modules          : Ordered_set_lang.t option
+      ; synopsis                 : string option
+      }
+  end
+
   type t =
-    { name                     : (Loc.t * Lib_name.Local.t)
-    ; public                   : Public_lib.t option
-    ; synopsis                 : string option
+    { interface                : Interface.t
     ; install_c_headers        : string list
     ; ppx_runtime_libraries    : (Loc.t * Lib_name.t) list
     ; modes                    : Mode_conf.Set.t
@@ -217,7 +225,6 @@ module Library : sig
     ; dune_version             : Syntax.Version.t
     ; virtual_modules          : Ordered_set_lang.t option
     ; implements               : (Loc.t * Lib_name.t) option
-    ; private_modules          : Ordered_set_lang.t option
     ; stdlib                   : Stdlib.t option
     }
 

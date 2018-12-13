@@ -218,7 +218,7 @@ module Gen(P : Params) = struct
     in
     let module_files =
       let if_ cond l = if cond then l else [] in
-      let (_loc, lib_name_local) = lib.name in
+      let (_loc, lib_name_local) = lib.interface.name in
       let obj_dir = Utils.library_object_directory ~dir lib_name_local in
       let { Mode.Dict.byte ; native } =
         Dune_file.Mode_conf.Set.eval lib.modes
@@ -360,7 +360,7 @@ module Gen(P : Params) = struct
                    ; kind = dir_kind
                    } ->
                 let sub_dir =
-                  (Option.value_exn lib.public).sub_dir in
+                  (Option.value_exn lib.interface.public).sub_dir in
                 let dir_contents = Dir_contents.get sctx ~dir in
                 lib_install_files ~dir ~sub_dir lib ~scope
                   ~dir_kind ~dir_contents)

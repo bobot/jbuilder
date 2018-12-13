@@ -68,7 +68,7 @@ let make_alias_module_of_lib ~dir ~lib ~main_module_name ~modules =
   make_alias_module ~dir ~main_module_name
     ~modules
     ~implements:(Dune_file.Library.is_impl lib)
-    ~lib_name:(snd lib.name)
+    ~lib_name:(snd lib.interface.name)
     ~stdlib:(Option.is_some lib.stdlib)
 
 let wrap_modules ~modules ~lib ~main_module_name =
@@ -85,7 +85,7 @@ let wrap_modules ~modules ~lib ~main_module_name =
           Module.Name.of_string
             (sprintf "%s__%s"
                (Module.Name.to_string main_module_name)
-               (Lib_name.Local.to_string (snd lib.name)))
+               (Lib_name.Local.to_string (snd lib.interface.name)))
         else
           main_module_name
       in

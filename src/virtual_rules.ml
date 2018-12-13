@@ -16,7 +16,7 @@ let setup_copy_rules_for_impl ~sctx ~dir vimpl =
   let vlib = Vimpl.vlib vimpl in
   let impl = Vimpl.impl vimpl in
   let vlib_modules = Vimpl.vlib_modules vimpl in
-  let lib_name = snd impl.name in
+  let lib_name = snd impl.interface.name in
   let target_obj_dir = Utils.library_object_directory ~dir lib_name in
   let src_obj_dir = Lib.obj_dir vlib in
   let copy_to_obj_dir ~src ~dst =
@@ -122,7 +122,7 @@ let check_module_fields ~(lib : Dune_file.Library.t) ~virtual_modules
   in
   if private_virtual_modules <> [] then begin
     (* The loc here will never be none as we've some private modules *)
-    Errors.fail_opt (Option.bind lib.private_modules ~f:Ordered_set_lang.loc)
+    Errors.fail_opt (Option.bind lib.interface.private_modules ~f:Ordered_set_lang.loc)
       "These private modules cannot be private:\n%s"
       (module_list private_virtual_modules)
   end;
@@ -130,7 +130,7 @@ let check_module_fields ~(lib : Dune_file.Library.t) ~virtual_modules
     Errors.fail lib.buildable.loc
       "Library %a cannot implement %a because the following \
        modules lack an implementation:\n%s"
-      Lib_name.Local.pp (snd lib.name)
+      Lib_name.Local.pp (snd lib.interface.name)
       Lib_name.pp implements
       (module_list missing_modules)
   end;

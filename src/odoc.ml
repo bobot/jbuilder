@@ -513,7 +513,7 @@ module Gen (S : sig val sctx : SC.t end) = struct
        |> List.concat_map ~f:(fun (w : _ Dir_with_dune.t) ->
          List.filter_map w.data ~f:(function
            | Dune_file.Library (l : Dune_file.Library.t) ->
-             begin match l.public with
+             begin match l.interface.public with
              | Some _ -> None
              | None ->
                let scope = SC.find_scope_by_dir sctx w.ctx_dir in

@@ -51,11 +51,11 @@ let internal_lib_names t =
       List.fold_left stanzas ~init:acc ~f:(fun acc -> function
         | Library lib ->
           Lib_name.Set.add
-            (match lib.public with
+            (match lib.interface.public with
              | None -> acc
              | Some { name = (_, name); _ } ->
                Lib_name.Set.add acc name)
-            (Lib_name.of_local lib.name)
+            (Lib_name.of_local lib.interface.name)
         | _ -> acc))
 
 let public_libs    t = t.public_libs
