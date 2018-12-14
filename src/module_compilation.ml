@@ -9,13 +9,13 @@ module SC = Super_context
 module Target : sig
   type t
   val cm : Module.t -> Cm_kind.t -> t
-  val obj : Module.t -> ext:string -> t
+  val obj : Module.t -> mode:Mode.t -> ext:string -> t
   val cmt : Module.t -> Ml_kind.t -> t option
   val file : Path.t -> t -> Path.t
 end = struct
   type t = Path.t
   let cm m cm_kind = Module.cm_file_unsafe m ~obj_dir:Path.root cm_kind
-  let obj m ~ext = Module.obj_file m ~obj_dir:Path.root ~ext
+  let obj m ~mode ~ext = Module.obj_file m ~mode ~obj_dir:Path.root ~ext
   let cmt m ml_kind = Module.cmt_file m ~obj_dir:Path.root ml_kind
   let file dir t = Path.append dir t
 end
@@ -31,14 +31,18 @@ end
 let force_read_cmi source_file =
   [ "-intf-suffix"; Path.extension source_file ]
 
+(* Build the cm* if the corresponding source is present, in the case
+   of cmi if the mli is not presetn it is added as aadditional target to
+   the .cmo generation
+*)
 let build_cm cctx ?sandbox ?(dynlink=true) ~dep_graphs
       ~cm_kind (m : Module.t) =
   let sctx     = CC.super_context cctx in
   let dir      = CC.dir           cctx in
   let obj_dir  = CC.obj_dir       cctx in
+  let byte_dir = Utils.library_byte_dir ~obj_dir in
   let ctx      = SC.context       sctx in
   let stdlib   = CC.stdlib        cctx in
-  let private_obj_dir = CC.private_obj_dir cctx in
   let vimpl    = CC.vimpl cctx in
   Mode.of_cm_kind cm_kind
   |> Context.compiler ctx
@@ -46,6 +50,15 @@ let build_cm cctx ?sandbox ?(dynlink=true) ~dep_graphs
     Option.iter (Module.cm_source m cm_kind) ~f:(fun src ->
       let ml_kind = Cm_kind.source cm_kind in
       let dst = Module.cm_file_unsafe m ~obj_dir cm_kind in
+      let copy_interface () =
+        (* symlink the .cmi into the public interface directory *)
+        if not (Module.is_private m) then
+          SC.add_rule sctx ~sandbox:false ~dir
+            (Build.symlink
+               ~src:(Module.cm_file_unsafe m ~obj_dir Cmi)
+               ~dst:(Module.cm_public_file_unsafe m ~obj_dir Cmi)
+            )
+      in
       let extra_args, extra_deps, other_targets =
         match cm_kind, Module.intf m
               , Vimpl.is_public_vlib_module vimpl m with
@@ -53,17 +66,21 @@ let build_cm cctx ?sandbox ?(dynlink=true) ~dep_graphs
            .cmY and .cmi. We choose to use ocamlc to produce the cmi
            and to produce the cmx we have to wait to avoid race
            conditions. *)
-        | Cmo, None, false -> [], [], [Target.cm m Cmi]
+        | Cmo, None, false ->
+          copy_interface ();
+          [], [], [Target.cm m Cmi]
         | Cmo, None, true
         | (Cmo | Cmx), _, _ ->
           force_read_cmi src,
           [Module.cm_file_unsafe m ~obj_dir Cmi],
           []
-        | Cmi, _, _ -> [], [], []
+        | Cmi, _, _ ->
+          copy_interface ();
+          [], [], []
       in
       let other_targets =
         match cm_kind with
-        | Cmx -> Target.obj m ~ext:ctx.ext_obj :: other_targets
+        | Cmx -> Target.obj m ~mode:Native ~ext:ctx.ext_obj :: other_targets
         | Cmi | Cmo -> other_targets
       in
       let dep_graph = Ml_kind.Dict.get dep_graphs ml_kind in
@@ -130,10 +147,7 @@ let build_cm cctx ?sandbox ?(dynlink=true) ~dep_graphs
            [ Dyn (fun flags -> As flags)
            ; no_keep_locs
            ; cmt_args
-           ; A "-I"; Path obj_dir
-           ; (match private_obj_dir with
-              | None -> S []
-              | Some private_obj_dir -> S [A "-I"; Path private_obj_dir])
+           ; A "-I"; Path byte_dir
            ; Cm_kind.Dict.get (CC.includes cctx) cm_kind
            ; As extra_args
            ; if dynlink || cm_kind <> Cmx then As [] else A "-nodynlink"
@@ -162,7 +176,8 @@ let build_cm cctx ?sandbox ?(dynlink=true) ~dep_graphs
            ; A "-o"; Target dst
            ; A "-c"; Ml_kind.flag ml_kind; Dep src
            ; Hidden_targets hidden_targets
-           ])))
+           ]);
+    ))
 
 let build_module ?sandbox ?js_of_ocaml ?dynlink ~dep_graphs cctx m =
   List.iter Cm_kind.all ~f:(fun cm_kind ->

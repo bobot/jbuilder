@@ -165,6 +165,9 @@ let has_intf t = Option.is_some t.intf
 let impl_only t = has_impl t && not (has_intf t)
 let intf_only t = has_intf t && not (has_impl t)
 
+let is_public t = Visibility.is_public t.visibility
+let is_private t = Visibility.is_private t.visibility
+
 let file t (kind : Ml_kind.t) =
   let file =
     match kind with
@@ -173,11 +176,11 @@ let file t (kind : Ml_kind.t) =
   in
   Option.map file ~f:(fun f -> f.path)
 
-let obj_file t ~obj_dir ~ext =
+let obj_file t ~obj_dir ~mode ~ext =
   let base =
-    match t.visibility with
-    | Public -> obj_dir
-    | Private -> Utils.library_private_obj_dir ~obj_dir
+    match mode with
+    | Mode.Byte -> Utils.library_byte_dir ~obj_dir
+    | Native -> Utils.library_native_dir ~obj_dir
   in
   Path.relative base (t.obj_name ^ ext)
 
@@ -185,25 +188,41 @@ let obj_name t = t.obj_name
 
 let cm_source t kind = file t (Cm_kind.source kind)
 
-let cm_file_unsafe t ~obj_dir kind =
-  obj_file t ~obj_dir ~ext:(Cm_kind.ext kind)
+let cm_file_unsafe t ?ext ~obj_dir kind =
+  let mode = match kind with Cm_kind.Cmx -> Mode.Native | Cmo | Cmi -> Byte in
+  let ext = Option.value ext ~default:(Cm_kind.ext kind) in
+  obj_file t ~obj_dir ~mode ~ext
 
-let cm_file t ~obj_dir (kind : Cm_kind.t) =
+let cm_file t ?ext ~obj_dir (kind : Cm_kind.t) =
   match kind with
   | (Cmx | Cmo) when not (has_impl t) -> None
-  | _ -> Some (cm_file_unsafe t ~obj_dir kind)
+  | _ -> Some (cm_file_unsafe t ?ext ~obj_dir kind)
+
+let cm_public_file_unsafe t ?ext ~obj_dir kind =
+  let ext = Option.value ext ~default:(Cm_kind.ext kind) in
+  let base = match kind with
+    | Cm_kind.Cmx -> Utils.library_native_dir ~obj_dir
+    | Cmo -> Utils.library_byte_dir ~obj_dir
+    | Cmi -> Utils.library_public_cmi_dir ~obj_dir in
+  Path.relative base (t.obj_name ^ ext)
+
+let cm_public_file t ?ext ~obj_dir (kind : Cm_kind.t) =
+  match kind with
+  | (Cmx | Cmo) when not (has_impl t) -> None
+  |  Cmi when is_private t -> None
+  | _ -> Some (cm_public_file_unsafe t ?ext ~obj_dir kind)
 
 let cmt_file t ~obj_dir (kind : Ml_kind.t) =
   match kind with
-  | Impl -> Option.map t.impl ~f:(fun _ -> obj_file t ~obj_dir ~ext:".cmt" )
-  | Intf -> Option.map t.intf ~f:(fun _ -> obj_file t ~obj_dir ~ext:".cmti")
+  | Impl -> Option.map t.impl ~f:(fun _ -> obj_file t ~mode:Byte ~obj_dir ~ext:".cmt" )
+  | Intf -> Option.map t.intf ~f:(fun _ -> obj_file t ~mode:Byte ~obj_dir ~ext:".cmti")
 
-let odoc_file t ~doc_dir = obj_file t ~obj_dir:doc_dir~ext:".odoc"
+let odoc_file t ~doc_dir = Path.relative doc_dir (t.obj_name ^ ".odoc")
 
 let cmti_file t ~obj_dir =
   match t.intf with
-  | None   -> obj_file t ~obj_dir ~ext:".cmt"
-  | Some _ -> obj_file t ~obj_dir ~ext:".cmti"
+  | None   -> obj_file t ~obj_dir ~mode:Byte ~ext:".cmt"
+  | Some _ -> obj_file t ~obj_dir ~mode:Byte ~ext:".cmti"
 
 let iter t ~f =
   Option.iter t.impl ~f:(f Ml_kind.Impl);
@@ -286,9 +305,6 @@ module Name_map = struct
   let add t module_ =
     Name.Map.add t (name module_) module_
 end
-
-let is_public t = Visibility.is_public t.visibility
-let is_private t = Visibility.is_private t.visibility
 
 let set_private t =
   { t with visibility = Private }

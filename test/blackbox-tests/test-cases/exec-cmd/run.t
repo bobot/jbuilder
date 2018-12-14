@@ -4,13 +4,13 @@
   [1]
   $ dune exec ./foo.exe --display short
       ocamldep .foo.eobjs/foo.ml.d
-        ocamlc .foo.eobjs/foo.{cmi,cmo,cmt}
-      ocamlopt .foo.eobjs/foo.{cmx,o}
+        ocamlc .foo.eobjs/.byte_objs/foo.{cmi,cmo,cmt}
+      ocamlopt .foo.eobjs/.native_objs/foo.{cmx,o}
       ocamlopt foo.exe
   Foo
   $ dune exec --profile release ./foo.exe --display short
-        ocamlc .foo.eobjs/foo.{cmi,cmo,cmt}
-      ocamlopt .foo.eobjs/foo.{cmx,o}
+        ocamlc .foo.eobjs/.byte_objs/foo.{cmi,cmo,cmt}
+      ocamlopt .foo.eobjs/.native_objs/foo.{cmx,o}
       ocamlopt foo.exe
   Foo
   $ dune exec dunetestbar --no-build --display short
@@ -18,7 +18,7 @@
   [1]
   $ dune exec dunetestbar --display short
       ocamldep .bar.eobjs/bar.ml.d
-        ocamlc .bar.eobjs/bar.{cmi,cmo,cmt}
-      ocamlopt .bar.eobjs/bar.{cmx,o}
+        ocamlc .bar.eobjs/.byte_objs/bar.{cmi,cmo,cmt}
+      ocamlopt .bar.eobjs/.native_objs/bar.{cmx,o}
       ocamlopt bar.exe
   Bar

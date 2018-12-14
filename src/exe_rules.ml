@@ -11,7 +11,7 @@ let executables_rules ~sctx ~dir ~dir_kind ~expander
   let obj_dir =
     Utils.executable_object_directory ~dir (List.hd exes.names |> snd)
   in
-  Check_rules.add_obj_dir sctx ~dir ~obj_dir;
+  Check_rules.add_obj_dir sctx ~dir ~obj_dir:(Utils.library_byte_dir ~obj_dir);
   let requires = Lib.Compile.requires compile_info in
   let modules =
     Dir_contents.modules_of_executables dir_contents

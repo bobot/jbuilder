@@ -28,6 +28,7 @@ module Gen (P : Install_rules.Params) = struct
 
   let build_lib (lib : Library.t) ~expander ~flags ~dir ~obj_dir ~mode
         ~top_sorted_modules ~modules =
+    let kind = Mode.cm_kind mode in
     Option.iter (Context.compiler ctx mode) ~f:(fun compiler ->
       let target = Library.archive lib ~dir ~ext:(Mode.compiled_lib_ext mode) in
       let stubs_flags =
@@ -47,10 +48,10 @@ module Gen (P : Install_rules.Params) = struct
           fun x -> x
       in
       let artifacts ~ext modules =
-        List.map modules ~f:(Module.obj_file ~obj_dir ~ext)
+        List.map modules ~f:(Module.obj_file ~mode ~obj_dir ~ext)
       in
       let obj_deps =
-        Build.paths (artifacts modules ~ext:(Cm_kind.ext (Mode.cm_kind mode)))
+        Build.paths (artifacts modules ~ext:(Cm_kind.ext kind))
       in
       let obj_deps =
         match mode with
@@ -63,7 +64,7 @@ module Gen (P : Install_rules.Params) = struct
         (obj_deps
          >>>
          Build.fanout4
-           (top_sorted_modules >>^artifacts ~ext:(Cm_kind.ext (Mode.cm_kind mode)))
+           (top_sorted_modules >>^artifacts ~ext:(Cm_kind.ext kind))
            (Expander.expand_and_eval_set expander lib.c_library_flags
               ~standard:(Build.return []))
            (Ocaml_flags.get flags mode)
@@ -331,7 +332,7 @@ module Gen (P : Install_rules.Params) = struct
 
   let setup_file_deps lib ~dir ~obj_dir ~modules =
     let add_cms ~cm_kind ~init = List.fold_left ~init ~f:(fun acc m ->
-      match Module.cm_file m ~obj_dir cm_kind with
+      match Module.cm_public_file m ~obj_dir cm_kind with
       | None -> acc
       | Some fn -> Path.Set.add acc fn)
     in
@@ -364,9 +365,9 @@ module Gen (P : Install_rules.Params) = struct
           | Some m ->
             (* These files needs to be alongside stdlib.cma as the
                compiler implicitly adds this module. *)
-            List.iter [".cmx"; ".cmo"; ctx.ext_obj] ~f:(fun ext ->
-              let src = Module.obj_file m ~obj_dir ~ext in
-              let dst = Module.obj_file m ~obj_dir:dir ~ext in
+            List.iter [Mode.Native,".cmx"; Byte,".cmo"; Native,ctx.ext_obj] ~f:(fun (mode,ext) ->
+              let src = Module.obj_file m ~obj_dir ~mode ~ext in
+              let dst = Module.obj_file m ~obj_dir:dir ~mode ~ext in
               SC.add_rule sctx ~dir (Build.copy ~src ~dst));
             Module.Name.Map.remove modules name
         end
@@ -418,7 +419,7 @@ module Gen (P : Install_rules.Params) = struct
   let library_rules (lib : Library.t) ~dir_contents ~dir ~expander ~scope
         ~compile_info ~dir_kind =
     let obj_dir = Utils.library_object_directory ~dir (snd lib.name) in
-    let private_obj_dir = Utils.library_private_obj_dir ~obj_dir in
+    let byte_dir = Utils.library_byte_dir ~obj_dir in
     let requires = Lib.Compile.requires compile_info in
     let dep_kind =
       if lib.optional then Lib_deps_info.Kind.Optional else Required
@@ -427,9 +428,7 @@ module Gen (P : Install_rules.Params) = struct
     let lib_modules =
       Dir_contents.modules_of_library dir_contents ~name:(Library.best_name lib)
     in
-    Check_rules.add_obj_dir sctx ~dir ~obj_dir;
-    if Lib_modules.has_private_modules lib_modules then
-      Check_rules.add_obj_dir sctx ~dir ~obj_dir:private_obj_dir;
+    Check_rules.add_obj_dir sctx ~dir ~obj_dir:byte_dir;
     let source_modules = Lib_modules.modules lib_modules in
     let vimpl =
       Virtual_rules.impl sctx ~lib ~dir ~scope ~modules:source_modules in
@@ -464,7 +463,6 @@ module Gen (P : Install_rules.Params) = struct
         ~dir
         ~dir_kind
         ~obj_dir
-        ~private_obj_dir
         ~modules
         ?alias_module
         ?lib_interface_module:(Lib_modules.lib_interface_module lib_modules)
@@ -539,10 +537,7 @@ module Gen (P : Install_rules.Params) = struct
       ; compile_info
       };
 
-    let objs_dirs = Path.Set.singleton obj_dir in
-    let objs_dirs = if Lib_modules.has_private_modules lib_modules then
-        Path.Set.add objs_dirs private_obj_dir
-      else objs_dirs in
+    let objs_dirs = Path.Set.singleton byte_dir in
 
     (cctx,
      Merlin.make ()

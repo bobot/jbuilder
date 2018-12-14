@@ -5,7 +5,7 @@ file) and be created just before linking.
 
   $ dune build --display short link_deps.exe
       ocamldep .link_deps.eobjs/link_deps.ml.d
-        ocamlc .link_deps.eobjs/link_deps.{cmi,cmo,cmt}
+        ocamlc .link_deps.eobjs/.byte_objs/link_deps.{cmi,cmo,cmt}
   link
-      ocamlopt .link_deps.eobjs/link_deps.{cmx,o}
+      ocamlopt .link_deps.eobjs/.native_objs/link_deps.{cmx,o}
       ocamlopt link_deps.exe
