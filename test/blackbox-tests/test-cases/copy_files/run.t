@@ -4,15 +4,15 @@
       ocamldep .test.eobjs/lexer1.ml.d
       ocamldep .test.eobjs/test.ml.d
       ocamldep .foo.objs/dummy.ml.d
-        ocamlc .foo.objs/dummy.{cmi,cmo,cmt}
-      ocamlopt .foo.objs/dummy.{cmx,o}
+        ocamlc .foo.objs/.byte_objs/dummy.{cmi,cmo,cmt}
+      ocamlopt .foo.objs/.native_objs/dummy.{cmx,o}
       ocamlopt foo.{a,cmxa}
         ocamlc bar$ext_obj
     ocamlmklib dllfoo_stubs$ext_dll,libfoo_stubs$ext_lib
-        ocamlc .test.eobjs/lexer1.{cmi,cmo,cmt}
-        ocamlc .test.eobjs/test.{cmi,cmo,cmt}
-      ocamlopt .test.eobjs/test.{cmx,o}
-      ocamlopt .test.eobjs/lexer1.{cmx,o}
+        ocamlc .test.eobjs/.byte_objs/lexer1.{cmi,cmo,cmt}
+        ocamlc .test.eobjs/.byte_objs/test.{cmi,cmo,cmt}
+      ocamlopt .test.eobjs/.native_objs/test.{cmx,o}
+      ocamlopt .test.eobjs/.native_objs/lexer1.{cmx,o}
       ocamlopt test.exe
   $ dune build --root test1 @bar-source --display short
   Entering directory 'test1'

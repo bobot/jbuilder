@@ -72,20 +72,24 @@ val impl : t -> File.t option
 
 val pp_flags : t -> (unit, string list) Build.t option
 
-val file      : t -> Ml_kind.t -> Path.t option
-val cm_source : t -> Cm_kind.t -> Path.t option
-val cm_file   : t -> obj_dir:Path.t -> Cm_kind.t -> Path.t option
-val cmt_file  : t -> obj_dir:Path.t -> Ml_kind.t -> Path.t option
+val file            : t -> Ml_kind.t -> Path.t option
+val cm_source       : t -> Cm_kind.t -> Path.t option
+val cm_file         : t -> ?ext:string -> obj_dir:Path.t -> Cm_kind.t -> Path.t option
+val cm_public_file  : t -> ?ext:string -> obj_dir:Path.t -> Cm_kind.t -> Path.t option
+val cmt_file        : t -> obj_dir:Path.t -> Ml_kind.t -> Path.t option
 
-val obj_file : t -> obj_dir:Path.t -> ext:string -> Path.t
+val obj_file : t -> obj_dir:Path.t -> mode:Mode.t -> ext:string -> Path.t
 
 val obj_name : t -> string
 
 val src_dir : t -> Path.t option
 
 (** Same as [cm_file] but doesn't raise if [cm_kind] is [Cmo] or [Cmx]
-    and the module has no implementation. *)
-val cm_file_unsafe : t -> obj_dir:Path.t -> Cm_kind.t -> Path.t
+    and the module has no implementation.
+    If present [ext] replace the extension of the kind
+ *)
+val cm_file_unsafe        : t -> ?ext:string -> obj_dir:Path.t -> Cm_kind.t -> Path.t
+val cm_public_file_unsafe : t -> ?ext:string -> obj_dir:Path.t -> Cm_kind.t -> Path.t
 
 val odoc_file : t -> doc_dir:Path.t -> Path.t
 

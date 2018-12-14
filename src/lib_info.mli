@@ -34,7 +34,6 @@ type t = private
   ; status           : Status.t
   ; src_dir          : Path.t
   ; obj_dir          : Path.t
-  ; private_obj_dir  : Path.t option
   ; version          : string option
   ; synopsis         : string option
   ; archives         : Path.t list Mode.Dict.t

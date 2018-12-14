@@ -1,7 +1,7 @@
   $ dune build @print-merlins --display short --profile release
       ocamldep sanitize-dot-merlin/.sanitize_dot_merlin.eobjs/sanitize_dot_merlin.ml.d
-        ocamlc sanitize-dot-merlin/.sanitize_dot_merlin.eobjs/sanitize_dot_merlin.{cmi,cmo,cmt}
-      ocamlopt sanitize-dot-merlin/.sanitize_dot_merlin.eobjs/sanitize_dot_merlin.{cmx,o}
+        ocamlc sanitize-dot-merlin/.sanitize_dot_merlin.eobjs/.byte_objs/sanitize_dot_merlin.{cmi,cmo,cmt}
+      ocamlopt sanitize-dot-merlin/.sanitize_dot_merlin.eobjs/.native_objs/sanitize_dot_merlin.{cmx,o}
       ocamlopt sanitize-dot-merlin/sanitize_dot_merlin.exe
   sanitize_dot_merlin alias print-merlins
   # Processing exe/.merlin
@@ -10,7 +10,7 @@
   B $LIB_PREFIX/lib/findlib
   B $LIB_PREFIX/lib/ocaml
   B ../_build/default/exe/.x.eobjs
-  B ../_build/default/lib/.foo.objs
+  B ../_build/default/lib/.foo.objs/.public_cmi
   S $LIB_PREFIX/lib/bytes
   S $LIB_PREFIX/lib/findlib
   S $LIB_PREFIX/lib/ocaml
@@ -22,9 +22,8 @@
   B $LIB_PREFIX/lib/bytes
   B $LIB_PREFIX/lib/findlib
   B $LIB_PREFIX/lib/ocaml
-  B ../_build/default/lib/.bar.objs
-  B ../_build/default/lib/.foo.objs
-  B ../_build/default/lib/.foo.objs/.private
+  B ../_build/default/lib/.bar.objs/.byte_objs
+  B ../_build/default/lib/.foo.objs/.byte_objs
   S $LIB_PREFIX/lib/bytes
   S $LIB_PREFIX/lib/findlib
   S $LIB_PREFIX/lib/ocaml

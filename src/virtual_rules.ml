@@ -7,34 +7,31 @@ let setup_copy_rules_for_impl ~sctx ~dir vimpl =
   let impl = Vimpl.impl vimpl in
   let vlib_modules = Vimpl.vlib_modules vimpl in
   let lib_name = snd impl.name in
-  let target_obj_dir =
-    let obj_dir = Utils.library_object_directory ~dir lib_name in
-    let private_obj_dir = Utils.library_private_obj_dir ~obj_dir in
-    fun m ->
-      if Module.is_public m then
-        obj_dir
-      else
-        private_obj_dir
-  in
-  let copy_to_obj_dir ~obj_dir file =
-    let dst = Path.relative obj_dir (Path.basename file) in
+  let target_obj_dir = Utils.library_object_directory ~dir lib_name in
+  let src_obj_dir = Lib.obj_dir vlib in
+  let copy_to_obj_dir ~src ~dst =
     Super_context.add_rule ~dir ~loc:(Loc.of_pos __POS__)
-      sctx (Build.symlink ~src:file ~dst)
+      sctx (Build.symlink ~src ~dst)
   in
-  let obj_dir = Lib.obj_dir vlib in
   let modes =
     Dune_file.Mode_conf.Set.eval impl.modes
       ~has_native:(Option.is_some ctx.ocamlopt) in
-  let copy_obj_file m ext =
-    let source = Module.obj_file m ~obj_dir ~ext in
-    copy_to_obj_dir ~obj_dir:(target_obj_dir m) source in
+  let copy_obj_file m ?ext kind =
+    let src = Module.cm_file_unsafe m ?ext ~obj_dir:src_obj_dir kind in
+    let dst = Module.cm_file_unsafe m ?ext ~obj_dir:target_obj_dir kind in
+    copy_to_obj_dir ~src ~dst in
   let copy_objs m =
-    copy_obj_file m (Cm_kind.ext Cmi);
+    copy_obj_file m Cmi;
+    if Module.is_public m then begin
+      let src = Module.cm_public_file_unsafe m ~obj_dir:src_obj_dir Cmi in
+      let dst = Module.cm_public_file_unsafe m ~obj_dir:target_obj_dir Cmi in
+      copy_to_obj_dir ~src ~dst
+    end;
     if Module.has_impl m then begin
       if modes.byte then
-        copy_obj_file m (Cm_kind.ext Cmo);
+        copy_obj_file m Cmo;
       if modes.native then
-        List.iter [Cm_kind.ext Cmx; ctx.ext_obj] ~f:(copy_obj_file m)
+        List.iter [Cm_kind.ext Cmx; ctx.ext_obj] ~f:(fun ext -> copy_obj_file m ~ext Cmx)
     end
   in
   let copy_all_deps m =
@@ -42,8 +39,10 @@ let setup_copy_rules_for_impl ~sctx ~dir vimpl =
       List.iter [Intf; Impl] ~f:(fun kind ->
         Module.file m kind
         |> Option.iter ~f:(fun f ->
-          Path.relative obj_dir (Path.basename f ^ ".all-deps")
-          |> copy_to_obj_dir ~obj_dir:(target_obj_dir m))
+          let all_deps obj_dir = Path.relative obj_dir (Path.basename f ^ ".all-deps") in
+          copy_to_obj_dir
+            ~src:(all_deps src_obj_dir)
+            ~dst:(all_deps target_obj_dir))
       );
   in
   Option.iter (Lib_modules.alias_module vlib_modules) ~f:copy_objs;

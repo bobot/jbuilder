@@ -206,11 +206,11 @@ module Gen(P : Params) = struct
       List.concat_map installable_modules ~f:(fun m ->
         List.concat
           [ if_ (Module.is_public m)
-              [ Module.cm_file_unsafe m ~obj_dir Cmi ]
+              [ Module.cm_public_file_unsafe m ~obj_dir Cmi ]
           ; if_ (native && Module.has_impl m)
               [ Module.cm_file_unsafe m ~obj_dir Cmx ]
           ; if_ (native && Module.has_impl m && virtual_library)
-              [ Module.obj_file m ~obj_dir ~ext:ctx.ext_obj ]
+              [ Module.obj_file m ~obj_dir ~mode:Native ~ext:ctx.ext_obj ]
           ; List.filter_map Ml_kind.all ~f:(Module.cmt_file m ~obj_dir)
           ])
     in

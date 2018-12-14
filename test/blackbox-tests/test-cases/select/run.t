@@ -6,12 +6,12 @@
       ocamldep .main.eobjs/foo_fake.ml.d
       ocamldep .main.eobjs/foo_no_fake.ml.d
       ocamldep .main.eobjs/main.ml.d
-        ocamlc .main.eobjs/bar.{cmi,cmo,cmt}
-      ocamlopt .main.eobjs/bar.{cmx,o}
-        ocamlc .main.eobjs/foo.{cmi,cmo,cmt}
-        ocamlc .main.eobjs/main.{cmi,cmo,cmt}
-      ocamlopt .main.eobjs/main.{cmx,o}
-      ocamlopt .main.eobjs/foo.{cmx,o}
+        ocamlc .main.eobjs/.byte_objs/bar.{cmi,cmo,cmt}
+      ocamlopt .main.eobjs/.native_objs/bar.{cmx,o}
+        ocamlc .main.eobjs/.byte_objs/foo.{cmi,cmo,cmt}
+        ocamlc .main.eobjs/.byte_objs/main.{cmi,cmo,cmt}
+      ocamlopt .main.eobjs/.native_objs/main.{cmx,o}
+      ocamlopt .main.eobjs/.native_objs/foo.{cmx,o}
       ocamlopt main.exe
           main alias runtest
   bar has unix
