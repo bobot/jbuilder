@@ -51,13 +51,15 @@ let build_cm cctx ?sandbox ?(dynlink=true) ~dep_graphs
       let ml_kind = Cm_kind.source cm_kind in
       let dst = Module.cm_file_unsafe m ~obj_dir cm_kind in
       let copy_interface () =
-        (* symlink the .cmi into the public interface directory *)
-        if not (Module.is_private m) then
-          SC.add_rule sctx ~sandbox:false ~dir
-            (Build.symlink
-               ~src:(Module.cm_file_unsafe m ~obj_dir Cmi)
-               ~dst:(Module.cm_public_file_unsafe m ~obj_dir Cmi)
-            )
+        (* symlink the .cmi into the public directory of the interfaces *)
+        let interfaces = Module.interfaces m in
+        Lib_name.Set.iter interfaces
+          ~f:(fun intf ->
+            SC.add_rule sctx ~sandbox:false ~dir
+              (Build.symlink
+                 ~src:(Module.cm_file_unsafe m ~obj_dir Cmi)
+                 ~dst:(Module.cm_public_file_unsafe m ~obj_dir ~intf Cmi)
+              ))
       in
       let extra_args, extra_deps, other_targets =
         match cm_kind, Module.intf m

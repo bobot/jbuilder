@@ -26,8 +26,9 @@ let make_unwrapped ~modules ~virtual_modules ~main_module_name =
   ; implements = false
   }
 
-let make_alias_module ~dir ~implements ~lib_name ~stdlib
-      ~main_module_name ~modules =
+let make_alias_module
+      ~dir ~implements ~lib_name ~stdlib
+      ~interfaces ~main_module_name ~modules =
   let alias_prefix =
     String.uncapitalize (Module.Name.to_string main_module_name) in
   if implements then
@@ -37,7 +38,7 @@ let make_alias_module ~dir ~implements ~lib_name ~stdlib
     let name = Module.Name.of_string alias_prefix in
     Some
       (Module.make name
-         ~visibility:Public
+         ~interfaces
          ~impl:(Module.File.make OCaml
                   (Path.relative dir (sprintf "%s.ml-gen" alias_prefix)))
          ~obj_name:alias_prefix)
@@ -52,27 +53,34 @@ let make_alias_module ~dir ~implements ~lib_name ~stdlib
        https://github.com/ocaml/dune/issues/567 *)
     Some
       (Module.make (Module.Name.add_suffix main_module_name "__")
-         ~visibility:Public
+         ~interfaces
          ~impl:(Module.File.make OCaml
                   (Path.relative dir (sprintf "%s__.ml-gen" alias_prefix)))
          ~obj_name:(alias_prefix ^ "__"))
   else
     Some
       (Module.make main_module_name
-         ~visibility:Public
+         ~interfaces
          ~impl:(Module.File.make OCaml
                   (Path.relative dir (alias_prefix ^ ".ml-gen")))
          ~obj_name:alias_prefix)
 
 let make_alias_module_of_lib ~dir ~lib ~main_module_name ~modules =
+  let interfaces =
+    Dune_file.Library.interfaces lib
+    |> List.map ~f:Dune_file.Library.best_name
+    |> Lib_name.Set.of_list
+  in
   make_alias_module ~dir ~main_module_name
     ~modules
     ~implements:(Dune_file.Library.is_impl lib)
     ~lib_name:(snd lib.interface.name)
     ~stdlib:(Option.is_some lib.stdlib)
+    ~interfaces
 
 let wrap_modules ~modules ~lib ~main_module_name =
   let open Module.Name.Infix in
+  let libname = Dune_file.Library.best_name lib.Dune_file.Library.interface in
   let prefix =
     if not (Dune_file.Library.is_impl lib) then
       fun _ -> main_module_name
@@ -90,7 +98,7 @@ let wrap_modules ~modules ~lib ~main_module_name =
           main_module_name
       in
       fun m ->
-        if Module.is_private m then
+        if not (Module.mem_interfaces m libname) then
           private_module_prefix
         else
           main_module_name
@@ -104,12 +112,13 @@ let wrap_modules ~modules ~lib ~main_module_name =
 
 let make_wrapped ~(lib : Dune_file.Library.t) ~dir ~transition ~modules
       ~virtual_modules ~main_module_name =
+  let libname = Dune_file.Library.best_name lib.Dune_file.Library.interface in
   let (modules, wrapped_compat) =
     if transition then
       ( wrap_modules ~modules ~main_module_name ~lib
       , Module.Name.Map.remove modules main_module_name
         |> Module.Name.Map.filter_map ~f:(fun m ->
-          if Module.is_public m then
+          if Module.mem_interfaces m libname then
             Some (Module.wrapped_compat m)
           else
             None)
@@ -201,12 +210,6 @@ let for_compilation t =
   match t.alias_module with
   | None -> t.modules
   | Some alias -> Module.Name_map.add t.modules alias
-
-let has_private_modules t =
-  Module.Name.Map.exists t.modules ~f:Module.is_private
-
-let public_modules t =
-  Module.Name.Map.filter ~f:Module.is_public t.modules
 
 let have_artifacts t =
   let base =
@@ -319,13 +322,15 @@ module Virtual = struct
     let intf = file ".mli" in
     let open Stanza.Decoder in
     repeat (located M.decode) >>| fun ms ->
+    let lib_name = Module.Name.to_local_lib_name main_module_name in
+    let interfaces = Lib_name.Set.singleton (Lib_name.of_local (Loc.none,lib_name)) in
     let modules =
       Module.Name.Map.of_list_map ms
         ~f:(fun (loc, { M. kind ; name }) ->
           let intf = if M.Kind.has_intf kind then Some (intf name) else None in
           let impl = if M.Kind.has_impl kind then Some (impl name) else None in
           let visibility = M.Kind.visibility kind in
-          let module_ = Module.make name ~visibility ?intf ?impl in
+          let module_ = Module.make name ~interfaces ?intf ?impl in
           (name, (loc, module_)))
       |> (function
         | Result.Ok m -> m
@@ -339,9 +344,9 @@ module Virtual = struct
           Module.name m = m'.name && M.Kind.is_virtual m'.kind) ms
       ) in
     let alias_module =
-      let lib_name = Module.Name.to_local_lib_name main_module_name in
       make_alias_module ~dir ~main_module_name ~modules
         ~stdlib:false ~implements:false ~lib_name
+        ~interfaces
     in
     { modules
     ; virtual_modules

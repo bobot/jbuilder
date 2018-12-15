@@ -49,13 +49,10 @@ end
 
 type t =
   { loc              : Loc.t
-  ; name             : Lib_name.t
+  ; prefix_name      : Lib_name.t
   ; kind             : Lib_kind.t
-  ; status           : Status.t
   ; src_dir          : Path.t
   ; obj_dir          : Path.t
-  ; version          : string option
-  ; synopsis         : string option
   ; archives         : Path.t list Mode.Dict.t
   ; plugins          : Path.t list Mode.Dict.t
   ; foreign_objects  : Path.t list
@@ -71,9 +68,25 @@ type t =
   ; sub_systems      : Sub_system_info.t Sub_system_name.Map.t
   ; virtual_         : Virtual.t option
   ; implements       : (Loc.t * Lib_name.t) option
-  ; main_module_name : Dune_file.Library.Main_module_name.t
   ; modes            : Mode.Dict.Set.t
+  ; mutable interfaces : interface list (* mutable just for creation *)
   }
+
+and interface =
+  { name      : Lib_name.t
+  ; cmi_dir   : Path.t
+  ; version   : string option
+  ; synopsis  : string option
+  ; status    : Status.t
+  ; main_module_name : Dune_file.Library.Main_module_name.t
+  ; implementation : t
+  }
+
+module Interface = struct
+
+  type t = interface
+
+end
 
 let user_written_deps t =
   List.fold_left (t.virtual_deps @ t.ppx_runtime_deps)
@@ -93,11 +106,6 @@ let of_library_stanza ~dir ~has_native ~ext_lib ~ext_obj
   let jsoo_runtime =
     List.map conf.buildable.js_of_ocaml.javascript_files
       ~f:(Path.relative dir)
-  in
-  let status =
-    match conf.interface.public with
-    | None   -> Status.Private (Dune_project.name conf.project)
-    | Some p -> Public p.package
   in
   let virtual_library = Dune_file.Library.is_virtual conf in
   let (foreign_archives, foreign_objects) =
@@ -144,35 +152,50 @@ let of_library_stanza ~dir ~has_native ~ext_lib ~ext_obj
       , archive_files ~f_ext:Mode.plugin_ext
       )
   in
-  let main_module_name = Dune_file.Library.main_module_name conf in
-  let name = Dune_file.Library.best_name conf in
-  let modes = Dune_file.Mode_conf.Set.eval ~has_native conf.modes in
-  { loc = conf.buildable.loc
-  ; name
-  ; kind     = conf.kind
-  ; src_dir  = dir
-  ; obj_dir
-  ; version  = None
-  ; synopsis = conf.interface.synopsis
-  ; archives
-  ; plugins
-  ; optional = conf.optional
-  ; foreign_objects
-  ; foreign_archives
-  ; jsoo_runtime
-  ; jsoo_archive
-  ; status
-  ; virtual_deps     = conf.virtual_deps
-  ; requires         = Deps.of_lib_deps conf.buildable.libraries
-  ; ppx_runtime_deps = conf.ppx_runtime_libraries
-  ; pps = Dune_file.Preprocess_map.pps conf.buildable.preprocess
-  ; sub_systems = conf.sub_systems
-  ; dune_version = Some conf.dune_version
-  ; virtual_
-  ; implements = conf.implements
-  ; main_module_name
-  ; modes
-  }
+  let prefix_name = Dune_file.Library.best_name conf.interface in
+  let implementation =
+    { loc = conf.buildable.loc
+    ; prefix_name
+    ; kind     = conf.kind
+    ; src_dir  = dir
+    ; obj_dir
+    ; archives
+    ; plugins
+    ; optional = conf.optional
+    ; foreign_objects
+    ; foreign_archives
+    ; jsoo_runtime
+    ; jsoo_archive
+    ; virtual_deps     = conf.virtual_deps
+    ; requires         = Deps.of_lib_deps conf.buildable.libraries
+    ; ppx_runtime_deps = conf.ppx_runtime_libraries
+    ; pps = Dune_file.Preprocess_map.pps conf.buildable.preprocess
+    ; sub_systems = conf.sub_systems
+    ; dune_version = Some conf.dune_version
+    ; virtual_
+    ; implements = conf.implements
+    ; interfaces = []
+    ; modes
+    }
+  in
+  let mk_interface (interface:Dune_file.Library.Interface.t) =
+    let status =
+      match interface.public with
+      | None   -> Status.Private (Dune_project.name conf.project)
+      | Some p -> Public p.package
+    in
+    let name = Dune_file.Library.best_name interface in
+    let main_module_name = Dune_file.Library.main_module_name conf in
+    { status
+    ; name
+    ; cmi_dir = Utils.library_public_cmi_dir ~obj_dir ~intf:name
+    ; synopsis = interface.synopsis
+    ; version = None
+    ; main_module_name
+    ; implementation
+    }
+  in
+  implementation.interfaces <- List.map ~f:mk_interface (conf.interface::conf.alternative_interfaces)
 
 let of_dune_lib dp =
   let module Lib = Dune_package.Lib in
@@ -183,29 +206,38 @@ let of_dune_lib dp =
     else
       None
   in
-  { loc = Lib.loc dp
-  ; name = Lib.name dp
-  ; kind = Lib.kind dp
-  ; status = Installed
-  ; src_dir
-  ; obj_dir = src_dir
-  ; version = Lib.version dp
-  ; synopsis = Lib.synopsis dp
-  ; requires = Simple (Lib.requires dp)
-  ; main_module_name = This (Lib.main_module_name dp)
-  ; foreign_objects = Lib.foreign_objects dp
-  ; plugins = Lib.plugins dp
-  ; archives = Lib.archives dp
-  ; ppx_runtime_deps = Lib.ppx_runtime_deps dp
-  ; foreign_archives = Lib.foreign_archives dp
-  ; jsoo_runtime = Lib.jsoo_runtime dp
-  ; jsoo_archive = None
-  ; pps = []
-  ; optional = false
-  ; virtual_deps = []
-  ; dune_version = None
-  ; sub_systems = Lib.sub_systems dp
-  ; virtual_
-  ; implements = Lib.implements dp
-  ; modes = Lib.modes dp
-  }
+  let name = Lib.name dp in
+  let implementation =
+    { loc = Lib.loc dp
+    ; prefix_name = name
+    ; kind = Lib.kind dp
+    ; src_dir
+    ; obj_dir = src_dir
+    ; requires = Simple (Lib.requires dp)
+    ; foreign_objects = Lib.foreign_objects dp
+    ; plugins = Lib.plugins dp
+    ; archives = Lib.archives dp
+    ; ppx_runtime_deps = Lib.ppx_runtime_deps dp
+    ; foreign_archives = Lib.foreign_archives dp
+    ; jsoo_runtime = Lib.jsoo_runtime dp
+    ; jsoo_archive = None
+    ; pps = Lib.pps dp
+    ; optional = false
+    ; virtual_deps = []
+    ; dune_version = None
+    ; sub_systems = Lib.sub_systems dp
+    ; virtual_
+    ; implements = Lib.implements dp
+    ; modes = Lib.modes dp
+    ; interfaces = []
+    }
+  in
+  implementation.interfaces <-
+    [{ version = Lib.version dp
+     ; synopsis = Lib.synopsis dp
+     ; status = Installed
+     ; name
+     ; cmi_dir = src_dir
+     ; implementation
+     ; main_module_name = This (Lib.main_module_name dp)
+     }]

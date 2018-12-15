@@ -48,8 +48,10 @@ let stanzas_to_consider_for_install stanzas ~external_lib_deps_mode =
              let keep =
                match (stanza : Stanza.t) with
                | Dune_file.Library lib ->
-                 Lib.DB.available (Scope.libs scope)
-                   (Dune_file.Library.best_name lib)
+                 List.exists ~f:(fun intf ->
+                   Lib.DB.available (Scope.libs scope)
+                     (Dune_file.Library.best_name intf))
+                   (Dune_file.Library.interfaces lib)
                | Dune_file.Documentation _
                | Dune_file.Install _ -> true
                | _ -> false

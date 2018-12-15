@@ -1,0 +1,8 @@
+(library
+  (name Foo)
+  (private B Bar)
+  (alternative-interface
+     (name Bar)
+     (private A Foo)
+  )
+)

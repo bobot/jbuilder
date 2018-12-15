@@ -107,7 +107,7 @@ module Ml_kind = struct
     fun ~modules ~wrapped_compat ->
       Ml_kind.Dict.make_both (w ~modules ~wrapped_compat)
 
-  let merge_impl ~(ml_kind : Ml_kind.t) _ vlib impl =
+  let merge_impl ~vname ~iname ~(ml_kind : Ml_kind.t) _ vlib impl =
     match vlib, impl with
     | None, None -> assert false
     | Some _, None -> None (* we don't care about internal vlib deps *)
@@ -119,7 +119,8 @@ module Ml_kind = struct
         match ml_kind with
         | Impl -> Some (mi, i)
         | Intf -> None
-      else if Module.is_private mv || Module.is_private mi then
+      else if not (Module.mem_interfaces mv vname)
+           || not (Module.mem_interfaces mi iname) then
         Some (mi, i)
       else
         let open Sexp.Encoder in
@@ -129,12 +130,12 @@ module Ml_kind = struct
           ; "mi", Module.to_sexp mi
           ]
 
-  let merge_for_impl ~(vlib : t) ~(impl : t) =
+  let merge_for_impl ~(vlib : t) ~vname ~(impl : t) ~iname =
     Ml_kind.Dict.of_func (fun ~ml_kind ->
       let impl = Ml_kind.Dict.get impl ml_kind in
       { impl with
         per_module =
-          Module.Name.Map.merge ~f:(merge_impl ~ml_kind)
+          Module.Name.Map.merge ~f:(merge_impl ~vname ~iname ~ml_kind)
             (Ml_kind.Dict.get vlib ml_kind).per_module
             impl.per_module
       })

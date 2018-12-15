@@ -859,6 +859,16 @@ module Library = struct
       ; synopsis
       }
 
+    let syntax =
+      let syntax =
+        Syntax.create ~name:"experimental-alternative-interfaces"
+          ~desc:"the experimental variants feature"
+          [ (0, 1) ]
+      in
+      Dune_project.Extension.register_simple ~experimental:true
+        syntax (Dune_lang.Decoder.return []);
+      syntax
+
   end
 
   type t =
@@ -886,6 +896,7 @@ module Library = struct
     ; virtual_modules          : Ordered_set_lang.t option
     ; implements               : (Loc.t * Lib_name.t) option
     ; stdlib                   : Stdlib.t option
+    ; alternative_interfaces   : Interface.t list
     }
 
   let decode =
@@ -927,6 +938,10 @@ module Library = struct
            >>= fun () -> located Lib_name.decode)
        and stdlib =
          field_o "stdlib" (Syntax.since Stdlib.syntax (0, 1) >>> Stdlib.decode)
+       and alternative_interfaces =
+         multi_field "alternative_interfaces"
+           (Syntax.since Interface.syntax (0, 1)
+            >>= fun () -> fields (Interface.decode wrapped))
        in
        Option.both virtual_modules implements
        |> Option.iter ~f:(fun (virtual_modules, (_, impl)) ->
@@ -985,6 +1000,7 @@ module Library = struct
        ; virtual_modules
        ; implements
        ; stdlib
+       ; alternative_interfaces
        })
 
   let has_stubs t =
@@ -1011,13 +1027,14 @@ module Library = struct
   let archive t ~dir ~ext =
     Path.relative dir (Lib_name.Local.to_string (snd t.interface.name) ^ ext)
 
-  let best_name t =
-    match t.interface.public with
-    | None -> Lib_name.of_local t.interface.name
+  let best_name interf =
+    match interf.Interface.public with
+    | None -> Lib_name.of_local interf.name
     | Some p -> snd p.name
 
   let is_virtual t = Option.is_some t.virtual_modules
   let is_impl t = Option.is_some t.implements
+  let interfaces t = t.interface::t.alternative_interfaces
 
   module Main_module_name = struct
     type t =

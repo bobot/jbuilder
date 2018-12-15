@@ -151,7 +151,7 @@ let modules_of_files ~dir ~files =
   let impls = parse_one_set impl_files in
   let intfs = parse_one_set intf_files in
   Module.Name.Map.merge impls intfs ~f:(fun name impl intf ->
-    Some (Module.make name ~visibility:Public ?impl ?intf))
+    Some (Module.make name ?impl ?intf))
 
 let build_modules_map (d : _ Dir_with_dune.t) ~modules =
   let scope = d.scope in
@@ -163,18 +163,25 @@ let build_modules_map (d : _ Dir_with_dune.t) ~modules =
               all_modules = modules
             ; virtual_modules
             } =
+          let interfaces = lib.interface::lib.alternative_interfaces in
+          let private_modules =
+            List.map interfaces
+              ~f:(fun interface ->
+                Library.best_name interface,
+                Option.value ~default:Ordered_set_lang.standard
+                  interface.private_modules)
+          in
           Modules_field_evaluator.eval ~modules
             ~buildable:lib.buildable
             ~virtual_modules:lib.virtual_modules
-            ~private_modules:(
-              Option.value ~default:Ordered_set_lang.standard
-                lib.interface.private_modules)
+            ~private_modules
+            ()
         in
         let main_module_name =
           match Library.main_module_name lib with
           | This mmn -> mmn
           | Inherited_from _ ->
-            let name = (fst lib.interface.name, Library.best_name lib) in
+            let name = (fst lib.interface.name, Library.best_name lib.interface) in
             Lib.DB.resolve (Scope.libs scope) name
             |> Result.bind ~f:Lib.main_module_name
             |> Result.ok_exn
@@ -192,14 +199,14 @@ let build_modules_map (d : _ Dir_with_dune.t) ~modules =
           Modules_field_evaluator.eval ~modules
             ~buildable:exes.buildable
             ~virtual_modules:None
-            ~private_modules:Ordered_set_lang.standard
+            ()
         in
         Right (exes, modules)
       | _ -> Skip)
   in
   let libraries =
     match
-      Lib_name.Map.of_list_map libs ~f:(fun (lib, m) -> Library.best_name lib, m)
+      Lib_name.Map.of_list_map libs ~f:(fun (lib, m) -> Library.best_name lib.interface, m)
     with
     | Ok x -> x
     | Error (name, _, (lib2, _)) ->

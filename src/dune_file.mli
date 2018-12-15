@@ -226,6 +226,7 @@ module Library : sig
     ; virtual_modules          : Ordered_set_lang.t option
     ; implements               : (Loc.t * Lib_name.t) option
     ; stdlib                   : Stdlib.t option
+    ; alternative_interfaces   : Interface.t list
     }
 
   val has_stubs : t -> bool
@@ -234,9 +235,10 @@ module Library : sig
   val stubs_archive : t -> dir:Path.t -> ext_lib:string -> Path.t
   val dll : t -> dir:Path.t -> ext_dll:string -> Path.t
   val archive : t -> dir:Path.t -> ext:string -> Path.t
-  val best_name : t -> Lib_name.t
+  val best_name : Interface.t -> Lib_name.t
   val is_virtual : t -> bool
   val is_impl : t -> bool
+  val interfaces : t -> Interface.t list
 
   module Main_module_name : sig
     type t =

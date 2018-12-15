@@ -82,45 +82,13 @@ module File = struct
       ]
 end
 
-module Visibility = struct
-  type t = Public | Private
-
-  let to_string = function
-    | Public -> "public"
-    | Private -> "private"
-
-  let pp fmt t = Format.pp_print_string fmt (to_string t)
-
-  let to_sexp t = Sexp.Encoder.string (to_string t)
-
-  let encode =
-    let open Dune_lang.Encoder in
-    function
-    | Public -> string "public"
-    | Private -> string "private"
-
-  let decode =
-    let open Dune_lang.Decoder in
-    plain_string (fun ~loc -> function
-      | "public" -> Public
-      | "private" -> Private
-      | _ -> Errors.fail loc
-               "Not a valid visibility. Valid visibility is public or private")
-
-  let is_public = function
-    | Public -> true
-    | Private -> false
-
-  let is_private t = not (is_public t)
-end
-
 type t =
   { name       : Name.t
   ; impl       : File.t option
   ; intf       : File.t option
   ; obj_name   : string
   ; pp         : (unit, string list) Build.t option
-  ; visibility : Visibility.t
+  ; interfaces : Lib_name.Set.t
   }
 
 let name t = t.name
@@ -128,7 +96,7 @@ let pp_flags t = t.pp
 let intf t = t.intf
 let impl t = t.impl
 
-let make ?impl ?intf ?obj_name ~visibility name =
+let make ?impl ?intf ?obj_name ?(interfaces=Lib_name.Set.empty) name =
   let file : File.t =
     match impl, intf with
     | None, None ->
@@ -154,7 +122,7 @@ let make ?impl ?intf ?obj_name ~visibility name =
   ; intf
   ; obj_name
   ; pp = None
-  ; visibility
+  ; interfaces
   }
 
 let real_unit_name t = Name.of_string (Filename.basename t.obj_name)
@@ -164,9 +132,6 @@ let has_intf t = Option.is_some t.intf
 
 let impl_only t = has_impl t && not (has_intf t)
 let intf_only t = has_intf t && not (has_impl t)
-
-let is_public t = Visibility.is_public t.visibility
-let is_private t = Visibility.is_private t.visibility
 
 let file t (kind : Ml_kind.t) =
   let file =
@@ -198,19 +163,19 @@ let cm_file t ?ext ~obj_dir (kind : Cm_kind.t) =
   | (Cmx | Cmo) when not (has_impl t) -> None
   | _ -> Some (cm_file_unsafe t ?ext ~obj_dir kind)
 
-let cm_public_file_unsafe t ?ext ~obj_dir kind =
+let cm_public_file_unsafe t ?ext ~obj_dir ~intf kind =
   let ext = Option.value ext ~default:(Cm_kind.ext kind) in
   let base = match kind with
     | Cm_kind.Cmx -> Utils.library_native_dir ~obj_dir
     | Cmo -> Utils.library_byte_dir ~obj_dir
-    | Cmi -> Utils.library_public_cmi_dir ~obj_dir in
+    | Cmi -> Utils.library_public_cmi_dir ~obj_dir ~intf in
   Path.relative base (t.obj_name ^ ext)
 
-let cm_public_file t ?ext ~obj_dir (kind : Cm_kind.t) =
+let cm_public_file t ?ext ~obj_dir ~intf (kind : Cm_kind.t) =
   match kind with
   | (Cmx | Cmo) when not (has_impl t) -> None
-  |  Cmi when is_private t -> None
-  | _ -> Some (cm_public_file_unsafe t ?ext ~obj_dir kind)
+  |  Cmi when not (Lib_name.Set.mem t.interfaces intf) -> None
+  | _ -> Some (cm_public_file_unsafe t ?ext ~obj_dir ~intf kind)
 
 let cmt_file t ~obj_dir (kind : Ml_kind.t) =
   match kind with
@@ -249,7 +214,7 @@ let src_dir t =
 
 let set_pp t pp = { t with pp }
 
-let to_sexp { name; impl; intf; obj_name ; pp ; visibility } =
+let to_sexp { name; impl; intf; obj_name ; pp ; interfaces } =
   let open Sexp.Encoder in
   record
     [ "name", Name.to_sexp name
@@ -257,16 +222,16 @@ let to_sexp { name; impl; intf; obj_name ; pp ; visibility } =
     ; "impl", (option File.to_sexp) impl
     ; "intf", (option File.to_sexp) intf
     ; "pp", (option string) (Option.map ~f:(fun _ -> "has pp") pp)
-    ; "visibility", Visibility.to_sexp visibility
+    ; "interfaces", (list Lib_name.to_sexp) (Lib_name.Set.to_list interfaces)
     ]
 
-let pp fmt { name; impl; intf; obj_name ; pp = _ ; visibility } =
+let pp fmt { name; impl; intf; obj_name ; pp = _ ; interfaces } =
   Fmt.record fmt
     [ "name", Fmt.const Name.pp name
     ; "impl", Fmt.const (Fmt.optional File.pp) impl
     ; "intf", Fmt.const (Fmt.optional File.pp) intf
     ; "obj_name", Fmt.const Format.pp_print_string obj_name
-    ; "visibility", Fmt.const Visibility.pp visibility
+    ; "interfaces", Fmt.const (Fmt.list Lib_name.pp) (Lib_name.Set.to_list interfaces)
     ]
 
 let wrapped_compat t =
@@ -306,8 +271,10 @@ module Name_map = struct
     Name.Map.add t (name module_) module_
 end
 
-let set_private t =
-  { t with visibility = Private }
+let set_interfaces t interfaces =
+  { t with interfaces }
+let interfaces t = t.interfaces
+let mem_interfaces t i = Lib_name.Set.mem t.interfaces i
 
 let visibility t = t.visibility
 

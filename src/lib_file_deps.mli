@@ -13,12 +13,12 @@ module L : sig
 end
 
 (** Setup the alias that depends on all files with a given extension for a
-    library *)
+    library. For the users of the library. *)
 val setup_file_deps_alias
   :  Super_context.t
   -> dir:Path.t
   -> exts:string list
-  -> Dune_file.Library.t
+  -> Dune_file.Library.Interface.t
   -> Path.Set.t
   -> unit
 
@@ -27,5 +27,5 @@ val setup_file_deps_group_alias
   :  Super_context.t
   -> dir:Path.t
   -> exts:string list
-  -> Dune_file.Library.t
+  -> Dune_file.Library.Interface.t
   -> unit

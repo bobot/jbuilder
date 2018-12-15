@@ -177,7 +177,7 @@ let check_invalid_module_listing ~(buildable : Buildable.t) ~intf_only
 
 let eval ~modules:(all_modules : Module.Name_map.t)
       ~buildable:(conf : Buildable.t) ~virtual_modules
-      ~private_modules =
+      ?private_modules () =
   (* fake modules are modules that doesn't exists but it doesn't
      matter because they are only removed from a set (for jbuild file
      compatibility) *)
@@ -202,9 +202,20 @@ let eval ~modules:(all_modules : Module.Name_map.t)
       eval ~standard:Module.Name.Map.empty ~all_modules
         virtual_modules
   in
-  let private_modules =
-    add_fake_modules @@
-    eval ~standard:Module.Name.Map.empty ~all_modules private_modules
+  let interfaces_modules, private_modules =
+    match private_modules with
+    | None -> Module.Name.Map.empty, Module.Name.Map.empty
+    | Some private_modules ->
+    List.fold_left ~init:(Module.Name.Map.empty,Module.Name.Map.empty) private_modules
+      ~f:(fun (iacc,pacc) (libname,private_modules) ->
+        let pm =
+          add_fake_modules @@
+          eval ~standard:Module.Name.Map.empty ~all_modules private_modules
+        in
+        let im = Module.Name.Map.map pm ~f:(fun _ -> Lib_name.Set.singleton libname) in
+        Module.Name.Map.union iacc im ~f:(fun _ a b -> Some (Lib_name.Set.union a b)),
+        Module.Name.Map.union pacc pm ~f:(fun _ a _ -> Some a)
+      )
   in
   Module.Name.Map.iteri !fake_modules ~f:(fun m loc ->
     Errors.warn loc "Module %a is excluded but it doesn't exist."
@@ -215,9 +226,9 @@ let eval ~modules:(all_modules : Module.Name_map.t)
   let drop_locs = Module.Name.Map.map ~f:snd in
   { all_modules =
       Module.Name.Map.map modules ~f:(fun (_, m) ->
-        if Module.Name.Map.mem private_modules (Module.name m) then
-          Module.set_private m
-        else
-          m)
+        Module.set_interfaces m
+          (Option.value ~default:Lib_name.Set.empty
+             (Module.Name.Map.find interfaces_modules (Module.name m))
+          ))
   ; virtual_modules = drop_locs virtual_modules
   }

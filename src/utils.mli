@@ -27,7 +27,7 @@ val library_native_dir     : obj_dir:Path.t -> Path.t
 
 (** cmo, cmi, cmt, cmti *)
 val library_byte_dir       : obj_dir:Path.t -> Path.t
-val library_public_cmi_dir : obj_dir:Path.t -> Path.t
+val library_public_cmi_dir : obj_dir:Path.t -> intf:Lib_name.t -> Path.t
 
 (** Return the directory where the object files for the given
     executable should be stored. *)

@@ -49,12 +49,6 @@ module File : sig
   val make : Syntax.t -> Path.t -> t
 end
 
-module Visibility : sig
-  type t = Public | Private
-
-  include Dune_lang.Conv with type t := t
-end
-
 type t
 
 (** [obj_name] Object name. It is different from [name] for wrapped modules. *)
@@ -62,7 +56,7 @@ val make
   :  ?impl:File.t
   -> ?intf:File.t
   -> ?obj_name:string
-  -> visibility:Visibility.t
+  -> ?interfaces:Lib_name.Set.t
   -> Name.t
   -> t
 
@@ -79,7 +73,7 @@ val pp_flags : t -> (unit, string list) Build.t option
 val file            : t -> Ml_kind.t -> Path.t option
 val cm_source       : t -> Cm_kind.t -> Path.t option
 val cm_file         : t -> ?ext:string -> obj_dir:Path.t -> Cm_kind.t -> Path.t option
-val cm_public_file  : t -> ?ext:string -> obj_dir:Path.t -> Cm_kind.t -> Path.t option
+val cm_public_file  : t -> ?ext:string -> obj_dir:Path.t -> intf:Lib_name.t -> Cm_kind.t -> Path.t option
 val cmt_file        : t -> obj_dir:Path.t -> Ml_kind.t -> Path.t option
 
 val obj_file : t -> obj_dir:Path.t -> mode:Mode.t -> ext:string -> Path.t
@@ -93,7 +87,7 @@ val src_dir : t -> Path.t option
     If present [ext] replace the extension of the kind
  *)
 val cm_file_unsafe        : t -> ?ext:string -> obj_dir:Path.t -> Cm_kind.t -> Path.t
-val cm_public_file_unsafe : t -> ?ext:string -> obj_dir:Path.t -> Cm_kind.t -> Path.t
+val cm_public_file_unsafe : t -> ?ext:string -> obj_dir:Path.t -> intf:Lib_name.t -> Cm_kind.t -> Path.t
 
 val odoc_file : t -> doc_dir:Path.t -> Path.t
 
@@ -142,16 +136,13 @@ module Obj_map : sig
     -> (module_ list, module_ list) Result.result
 end with type module_ := t
 
-val is_public : t -> bool
-val is_private : t -> bool
-
-val set_private : t -> t
+val set_interfaces : t -> Lib_name.Set.t -> t
+val interfaces : t -> Lib_name.Set.t
+val mem_interfaces : t -> Lib_name.t -> bool
 
 val remove_files : t -> t
 
 val sources : t -> Path.t list
-
-val visibility : t -> Visibility.t
 
 val encode : t -> Dune_lang.t list
 

@@ -35,5 +35,5 @@ module Ml_kind : sig
     -> wrapped_compat:Module.t Module.Name.Map.t
     -> t
 
-  val merge_for_impl : vlib:t -> impl:t -> t
+  val merge_for_impl : vlib:t -> vname:Lib_name.t -> impl:t -> iname:Lib_name.t -> t
 end

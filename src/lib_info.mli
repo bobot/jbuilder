@@ -29,13 +29,10 @@ end
 
 type t = private
   { loc              : Loc.t
-  ; name             : Lib_name.t
+  ; prefix_name      : Lib_name.t
   ; kind             : Lib_kind.t
-  ; status           : Status.t
   ; src_dir          : Path.t
   ; obj_dir          : Path.t
-  ; version          : string option
-  ; synopsis         : string option
   ; archives         : Path.t list Mode.Dict.t
   ; plugins          : Path.t list Mode.Dict.t
   ; foreign_objects  : Path.t list
@@ -51,9 +48,24 @@ type t = private
   ; sub_systems      : Sub_system_info.t Sub_system_name.Map.t
   ; virtual_         : Virtual.t option
   ; implements       : (Loc.t * Lib_name.t) option
-  ; main_module_name : Dune_file.Library.Main_module_name.t
   ; modes            : Mode.Dict.Set.t
+  ; mutable interfaces       : interface list
   }
+
+and interface = private
+  { name      : Lib_name.t
+  ; cmi_dir   : Path.t
+  ; version   : string option
+  ; synopsis  : string option
+  ; status    : Status.t
+  ; main_module_name : Dune_file.Library.Main_module_name.t
+  }
+
+module Interface : sig
+
+  type t = interface
+
+end
 
 val of_library_stanza
   :  dir:Path.t

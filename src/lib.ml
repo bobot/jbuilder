@@ -69,7 +69,7 @@ module Error = struct
 
   module Private_deps_not_allowed = struct
     type t =
-      { private_dep : Lib_info.t
+      { private_dep : Lib_info.Interface.t
       ; loc         : Loc.t
       }
   end
@@ -128,7 +128,7 @@ module Id = struct
 end
 
 type t =
-  { info              : Lib_info.t
+  { info              : Lib_info.Interface.t
   ; name              : Lib_name.t
   ; unique_id         : int
   ; requires          : t list Or_exn.t
@@ -176,34 +176,34 @@ let not_available ~loc reason fmt =
 
 let name t = t.name
 
-let kind         t = t.info.kind
+let kind         t = t.info.implementation.kind
 let synopsis     t = t.info.synopsis
-let archives     t = t.info.archives
-let plugins      t = t.info.plugins
-let jsoo_runtime t = t.info.jsoo_runtime
-let jsoo_archive t = t.info.jsoo_archive
+let archives     t = t.info.implementation.archives
+let plugins      t = t.info.implementation.plugins
+let jsoo_runtime t = t.info.implementation.jsoo_runtime
+let jsoo_archive t = t.info.implementation.jsoo_archive
 let unique_id    t = t.unique_id
 let modes        t = t.info.modes
 
-let virtual_     t = t.info.virtual_
+let virtual_     t = t.info.implementation.virtual_
 
-let src_dir t = t.info.src_dir
-let obj_dir t = t.info.obj_dir
-let is_local t = Path.is_managed t.info.obj_dir
+let src_dir t = t.info.implementation.src_dir
+let obj_dir t = t.info.implementation.obj_dir
+let is_local t = Path.is_managed t.info.implementation.obj_dir
 
 let public_cmi_dir t =
   if is_local t then
-    Utils.library_public_cmi_dir ~obj_dir:t.info.obj_dir
+    t.info.cmi_dir
   else obj_dir t
 
 let native_dir t =
   if is_local t then
-    Utils.library_native_dir ~obj_dir:t.info.obj_dir
+    Utils.library_native_dir ~obj_dir:t.info.implementation.obj_dir
   else obj_dir t
 
 let status t = t.info.status
 
-let foreign_objects t = t.info.foreign_objects
+let foreign_objects t = t.info.implementation.foreign_objects
 
 let main_module_name t =
   match t.info.main_module_name with
@@ -223,7 +223,7 @@ let package t =
 
 let to_id t : Id.t =
   { unique_id = t.unique_id
-  ; path      = t.info.src_dir
+  ; path      = t.info.implementation.src_dir
   ; name      = t.name
   }
 
@@ -262,7 +262,7 @@ module L = struct
   let c_include_paths ts ~stdlib_dir =
     let dirs =
       List.fold_left ts ~init:Path.Set.empty ~f:(fun acc t ->
-        Path.Set.add acc t.info.src_dir)
+        Path.Set.add acc t.info.implementation.src_dir)
     in
     Path.Set.remove dirs stdlib_dir
 
@@ -273,7 +273,7 @@ module L = struct
     Arg_spec.S
       (c_include_flags ts ~stdlib_dir ::
        List.map ts ~f:(fun t ->
-         Arg_spec.Deps (Mode.Dict.get t.info.archives mode)))
+         Arg_spec.Deps (Mode.Dict.get t.info.implementation.archives mode)))
 
   let compile_and_link_flags ~compile ~link ~mode ~stdlib_dir =
     let dirs =
@@ -284,15 +284,15 @@ module L = struct
     Arg_spec.S
       (to_iflags dirs ::
        List.map link ~f:(fun t ->
-         Arg_spec.Deps (Mode.Dict.get t.info.archives mode)))
+         Arg_spec.Deps (Mode.Dict.get t.info.implementation.archives mode)))
 
   let jsoo_runtime_files ts =
-    List.concat_map ts ~f:(fun t -> t.info.jsoo_runtime)
+    List.concat_map ts ~f:(fun t -> t.info.implementation.jsoo_runtime)
 
   let archive_files ts ~mode =
     List.concat_map ts ~f:(fun t ->
-      Mode.Dict.get t.info.archives mode @
-      Mode.Dict.get t.info.foreign_archives mode)
+      Mode.Dict.get t.info.implementation.archives mode @
+      Mode.Dict.get t.info.implementation.foreign_archives mode)
 
   let remove_dups l =
     let rec loop acc l seen =
@@ -318,7 +318,7 @@ module Lib_and_module = struct
       (L.c_include_flags libs ~stdlib_dir ::
        List.map ts ~f:(function
          | Lib t ->
-           Arg_spec.Deps (Mode.Dict.get t.info.archives mode)
+           Arg_spec.Deps (Mode.Dict.get t.info.implementation.archives mode)
          | Module (m,obj_dir) ->
            Dep (Module.cm_file_unsafe m ~obj_dir (Mode.cm_kind mode))
        ))
@@ -475,7 +475,7 @@ let already_in_table (info : Lib_info.t) name x =
                  Path.to_sexp x.path]
     | St_found t ->
       List [Sexp.Atom "Found";
-            Path.to_sexp t.info.src_dir]
+            Path.to_sexp t.info.implementation.src_dir]
     | St_not_found ->
       Sexp.Atom "Not_found"
     | St_hidden (_, { path; reason; _ }) ->
@@ -521,7 +521,7 @@ end = struct
         let rec loop acc = function
           | [] -> Ok acc
           | (lib, stack) :: libs ->
-            match lib.implements, lib.info.virtual_ with
+            match lib.implements, lib.info.implementation.virtual_ with
             | None, None -> loop acc libs
             | Some _, Some _ ->
               assert false (* can't be virtual and implement *)
@@ -544,8 +544,8 @@ end = struct
                   Dep_stack.to_required_by stack ~stop_at:orig_stack
                 in
                 Error (Error (Double_implementation
-                                { impl2 = (lib.info, req_by)
-                                ; impl1 = (lib'.info, req_by')
+                                { impl2 = (lib.info.implementation, req_by)
+                                ; impl1 = (lib'.info.implementation, req_by')
                                 ; vlib = vlib.name
                                 }))
               end
@@ -562,7 +562,7 @@ end = struct
           let rb = Dep_stack.to_required_by stack ~stop_at:orig_stack in
           Error
             (Error
-               (No_implementation { for_vlib = (vlib.info, rb) }))
+               (No_implementation { for_vlib = (vlib.info.implementation, rb) }))
         | (vlib, (Impl (impl, _stack))) :: libs ->
           loop (Map.add acc vlib impl) libs
       in

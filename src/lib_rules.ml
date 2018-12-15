@@ -490,8 +490,10 @@ module Gen (P : Install_rules.Params) = struct
         (None, dep_graphs)
       | Some impl ->
         let vlib = Vimpl.vlib_dep_graph impl in
+        let vname = Lib.name (Vimpl.vlib impl) in
         ( Some vlib
-        , Dep_graph.Ml_kind.merge_for_impl ~vlib ~impl:dep_graphs
+        , Dep_graph.Ml_kind.merge_for_impl ~vlib ~vname ~impl:dep_graphs
+            ~iname:(Library.best_name lib.interface)
         )
     in
 
