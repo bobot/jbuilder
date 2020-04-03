@@ -254,7 +254,8 @@ end = struct
                   let loc = File_binding.Expanded.src_loc fb in
                   let src = File_binding.Expanded.src fb in
                   let dst = File_binding.Expanded.dst fb in
-                  (Some loc, Install.Entry.make section src ?dst))
+                  (Some loc, Install.Entry.make_with_site section
+                               (Super_context.get_site_of_packages sctx) src ?dst))
             | Dune_file.Library lib ->
               let sub_dir = (Option.value_exn lib.public).sub_dir in
               let dir_contents = Dir_contents.get sctx ~dir in
@@ -268,7 +269,7 @@ end = struct
                   ( None
                   , Install.Entry.make
                       ~dst:(sprintf "odoc-pages/%s" (Path.Build.basename mld))
-                      Install.Section.Doc mld ))
+                      Section.Doc mld ))
             | _ -> []
           in
           Package.Name.Map.Multi.add_all acc package.name new_entries)
@@ -370,11 +371,20 @@ let gen_dune_package sctx pkg =
                            ~dir:(Path.build (lib_root lib))
                            ~modules ~foreign_objects))))
         in
+        let sections =
+          let sections =
+            Section.Set.of_list (Section.Site.Map.values pkg.sites)
+          in
+          Section.Map.mapi (Section.Set.to_map sections)
+            ~f:(fun section () -> Install.Section.Paths.get_local_location ctx.name section name)
+        in
         Dune_package.Or_meta.Dune_package
           { Dune_package.version = pkg.version
           ; name
           ; entries
           ; dir = Path.build pkg_root
+          ; sections
+          ; sites = pkg.sites
           }
       in
       dune_package
@@ -415,6 +425,8 @@ let gen_dune_package sctx pkg =
         ; dir =
             Path.build
               (Config.local_install_lib_dir ~context:ctx.name ~package:name)
+        ; sections = Section.Map.empty
+        ; sites = Section.Site.Map.empty
         }
       in
       Build.write_file

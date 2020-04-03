@@ -68,6 +68,7 @@ module type File_operations = sig
     -> executable:bool
     -> special_file:Special_file.t option
     -> package:Package.Name.t
+    -> get_location:(Dune.Section.t -> Package.Name.t -> Stdune.Path.t)
     -> unit Fiber.t
 
   val mkdir_p : Path.t -> unit
@@ -82,7 +83,7 @@ module type Workspace = sig
 end
 
 module File_ops_dry_run : File_operations = struct
-  let copy_file ~src ~dst ~executable ~special_file:_ ~package:_ =
+  let copy_file ~src ~dst ~executable ~special_file:_ ~package:_ ~get_location:_ =
     Format.printf "Copying %s to %s (executable: %b)\n"
       (Path.to_string_maybe_quoted src)
       (Path.to_string_maybe_quoted dst)
@@ -159,12 +160,38 @@ module File_ops_real (W : Workspace) : File_operations = struct
           in
           Pp.render_ignore_tags ppf (Dune.Meta.pp meta.entries))
 
-  let process_dune_package ic =
+  let replace_sites ~(get_location:(Dune.Section.t -> Package.Name.t -> Stdune.Path.t)) dp =
+    match List.find_map dp ~f:(function
+      | Dune_lang.List [Atom (A "name");Atom (A name)] -> Some name
+      | _ -> None) with
+    | None -> dp
+    | Some name ->
+      List.map dp ~f:(function
+        | Dune_lang.List (((Atom (A "sections")) as sexp_sites) :: sections) ->
+          let sections =
+            List.map sections ~f:(function
+              | Dune_lang.List [(Atom (A section)) as section_sexp;_] ->
+                let path =
+                  get_location
+                    (Option.value_exn (Dune.Section.of_string section))
+                    (Import.Package.Name.of_string name)
+                in
+                let open Dune_lang.Encoder in
+                pair sexp string (section_sexp,Path.to_absolute_filename path)
+              | _ -> assert false)
+          in
+          Dune_lang.List (sexp_sites :: sections)
+        | x -> x)
+
+  let process_dune_package ~get_location ic =
     let lb = Lexing.from_channel ic in
     let dp =
       Dune_lang.Parser.parse ~mode:Many lb
       |> List.map ~f:Dune_lang.Ast.remove_locs
     in
+    (* replace sites with external path in the file *)
+    let dp = replace_sites ~get_location dp in
+    (* replace version if needed in the file *)
     if
       List.exists dp ~f:(function
         | Dune_lang.List (Atom (A "version") :: _) -> true
@@ -192,7 +219,7 @@ module File_ops_real (W : Workspace) : File_operations = struct
               Format.pp_print_cut ppf ());
           Format.pp_close_box ppf ())
 
-  let copy_file ~src ~dst ~executable ~special_file ~package =
+  let copy_file ~src ~dst ~executable ~special_file ~package ~get_location =
     let chmod =
       if executable then
         fun _ ->
@@ -210,7 +237,7 @@ module File_ops_real (W : Workspace) : File_operations = struct
         match (special_file : Special_file.t option) with
         | Some META -> copy_special_file ~src ~package ~ic ~oc ~f:process_meta
         | Some Dune_package ->
-          copy_special_file ~src ~package ~ic ~oc ~f:process_dune_package
+          copy_special_file ~src ~package ~ic ~oc ~f:(process_dune_package ~get_location)
         | None ->
           Dune.Artifact_substitution.copy ~get_vcs ~input:(input ic)
             ~output:(output oc))
@@ -238,13 +265,13 @@ end
 module Sections = struct
   type t =
     | All
-    | Only of Install.Section.Set.t
+    | Only of Section.Set.t
 
-  let sections_conv : Install.Section.t list Cmdliner.Arg.converter =
+  let sections_conv : Section.t list Cmdliner.Arg.converter =
     let all =
-      Install.Section.all |> Install.Section.Set.to_list
+      Section.all |> Section.Set.to_list
       |> List.map ~f:(fun section ->
-             (Install.Section.to_string section, section))
+             (Section.to_string section, section))
     in
     Arg.list ~sep:',' (Arg.enum all)
 
@@ -256,12 +283,12 @@ module Sections = struct
     in
     match sections with
     | None -> All
-    | Some sections -> Only (Install.Section.Set.of_list sections)
+    | Some sections -> Only (Section.Set.of_list sections)
 
   let should_install t section =
     match t with
     | All -> true
-    | Only set -> Install.Section.Set.mem set section
+    | Only set -> Section.Set.mem set section
 end
 
 let file_operations ~dry_run ~workspace : (module File_operations) =
@@ -451,11 +478,18 @@ let install_uninstall ~what =
                           (Path.to_string_maybe_quoted dst);
                         Ops.mkdir_p dir;
                         let executable =
-                          Install.Section.should_set_executable_bit
+                          Section.should_set_executable_bit
                             entry.section
                         in
+                        let get_location section package =
+                          let paths =
+                            Install.Section.Paths.make ~package ~destdir:prefix ?libdir
+                              ?mandir ()
+                          in
+                          Install.Section.Paths.get paths section
+                        in
                         Ops.copy_file ~src:entry.src ~dst ~executable
-                          ~special_file ~package
+                          ~special_file ~package ~get_location
                       ) else (
                         Ops.remove_if_exists dst;
                         files_deleted_in := Path.Set.add !files_deleted_in dir;

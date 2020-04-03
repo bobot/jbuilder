@@ -245,7 +245,7 @@ end
 
 module Install_conf : sig
   type t =
-    { section : Install.Section.t
+    { section : Install.SectionWithSite.t
     ; files : File_binding.Unexpanded.t list
     ; package : Package.t
     }

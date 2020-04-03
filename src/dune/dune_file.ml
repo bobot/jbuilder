@@ -1050,14 +1050,14 @@ end
 
 module Install_conf = struct
   type t =
-    { section : Install.Section.t
+    { section : Install.SectionWithSite.t
     ; files : File_binding.Unexpanded.t list
     ; package : Package.t
     }
 
   let decode =
     fields
-      (let+ section = field "section" Install.Section.decode
+      (let+ section = field "section" Install.SectionWithSite.decode
        and+ files = field "files" File_binding.Unexpanded.L.decode
        and+ package = Pkg.field "install" in
        { section; files; package })
@@ -1244,7 +1244,7 @@ module Executables = struct
                       ~dst:(locp, pub)))
             |> List.filter_opt
           in
-          { Install_conf.section = Bin; files; package })
+          { Install_conf.section = Section Bin; files; package })
   end
 
   module Link_mode = struct

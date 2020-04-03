@@ -1837,6 +1837,14 @@
    (progn (run dune-cram run run.t) (diff? run.t run.t.corrected)))))
 
 (rule
+ (alias sites)
+ (deps (package dune) (source_tree test-cases/sites))
+ (action
+  (chdir
+   test-cases/sites
+   (progn (run dune-cram run run.t) (diff? run.t run.t.corrected)))))
+
+(rule
  (alias stale-artifact-removal)
  (deps (package dune) (source_tree test-cases/stale-artifact-removal))
  (action
@@ -2638,6 +2646,7 @@
   (alias select-2-0-rules)
   (alias several-packages)
   (alias shadow-bindings)
+  (alias sites)
   (alias stale-artifact-removal)
   (alias stdlib-compilation)
   (alias strict-package-deps)
@@ -2898,6 +2907,7 @@
   (alias select-2-0-rules)
   (alias several-packages)
   (alias shadow-bindings)
+  (alias sites)
   (alias stale-artifact-removal)
   (alias stdlib-compilation)
   (alias strict-package-deps)

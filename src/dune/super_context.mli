@@ -38,6 +38,8 @@ val host : t -> t
 
 val external_lib_deps_mode : t -> bool
 
+val get_site_of_packages: t -> pkg:Package.Name.t -> site:Section.Site.t -> Section.t
+
 module Lib_entry : sig
   type t =
     | Library of Lib.Local.t

@@ -242,6 +242,11 @@ It contains the following fields:
   from other build systems which do not follow Dune's convention of prefixing
   the public name of the library with the package name.
 
+- ``(sites <site-specification>+)`` defines sites for the package.
+  ``<site-specification>`` is ``(<section> <name>)`` where ``<name>`` is the
+  name of the sites which will be localized as sub-directory ``<name>`` of the
+  directory correpsponding to ``<section>`` :ref:`_install`.
+
 - ``(license <name>)``, ``(authors <authors>)``, ``(maintainers
   <maintainers>)``, ``(source <source>)``, ``(bug_reports <url>)``, ``(homepage
   <url>)``, ``(documentation <url>)`` are the same (and take precedence over)
@@ -1163,6 +1168,10 @@ The following sections are available:
 - ``misc`` requires files to specify an absolute destination, and the
   user will be prompted before the installation when it is done via
   opam. Only use this for advanced cases.
+- ``(site (<pkgname> <site>))`` installs in the site of the given package. More
+  precisely installs to ``<prefix>/<section>/<pkgname>/<site>``. So if the
+  prefix is different from when the package ``<pkgname>`` was installed, it will
+  not be installed in the current directory of the package ``<pkgname>``.
 
 Normally, Dune uses the basename of the file to install to determine
 the name of the file once installed.  However, you can change that
