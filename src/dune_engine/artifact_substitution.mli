@@ -5,6 +5,7 @@ open Stdune
 type configpath =
   | Sourceroot
   | Stdlib
+  | OCamlCompiler of [ `Byte | `Native ]
 
 (** A symbolic representation of the value to substitute to *)
 type t =
@@ -37,6 +38,8 @@ val conf_for_install :
   -> prefix:Path.t
   -> libdir:Path.t option
   -> mandir:Path.t option
+  -> ocamlc:Path.t
+  -> ocamlopt:Path.t option
   -> conf
 
 val conf_dummy : conf
