@@ -1,6 +1,9 @@
 3.1.0 (Unreleased)
 ------------------
 
+- Dune-site.plugin: add support for `archive(native|byte, plugin)` used in the wild before
+  findlib documented `plugin(native|byte)` in 2015 (#5518, @bobot)
+
 - Add `(deps <deps>)` in ctype field (#5346, @bobot)
 
 - Add `(include <file>)` constructor to dependency specifications. This can be
