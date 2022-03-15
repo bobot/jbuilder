@@ -88,7 +88,8 @@ let include_dir_flags ~expander ~dir (stubs : Foreign.Stubs.t) =
                             let deps =
                               Dep.Set.singleton
                                 (Dep.file_selector
-                                   (File_selector.create ~dir Predicate.true_))
+                                   (File_selector.create ~dir
+                                      (Lib_file_deps.Group.to_predicate Header)))
                             in
                             Action_builder.return
                               (Appendable_list.singleton

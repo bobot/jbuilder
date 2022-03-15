@@ -5,6 +5,8 @@ module Group : sig
     | Cmi
     | Cmx
     | Header
+
+  val to_predicate : t -> string Predicate.t
 end
 
 (** [deps t libs ~files] returns a list of path dependencies for all the files
